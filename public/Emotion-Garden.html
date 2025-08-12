@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotion Garden</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&family=Dancing+Script:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { background: #0b1020; color: #fff; overflow: hidden; }
+    .root { position: fixed; inset: 0; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; background: transparent; }
+    .overlay { position: absolute; inset: 0; pointer-events: none; }
+    .panel { pointer-events: auto; }
+    .welcome, .results { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    .card { text-align: center; padding: 32px; background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.6); max-width: 720px; width: calc(100% - 32px); }
+    .title { font: 400 36px 'Dancing Script', cursive; color: #222; margin: 0 0 12px; }
+    .subtitle { font: 400 18px 'Noto Sans KR', sans-serif; color: #444; margin: 0 0 24px; line-height: 1.6; }
+    .label { font: 500 13px 'Noto Sans KR', sans-serif; color: #666; margin: 14px 0 8px; text-align: left; }
+    .select, .range, .file { width: 100%; border-radius: 999px; padding: 12px 16px; border: 1px solid #e3e7ef; background: rgba(255,255,255,0.7); color: #333; outline: none; font: 400 15px 'Noto Sans KR', sans-serif; }
+    .btn { display: inline-block; border-radius: 999px; padding: 14px 28px; border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.7); color: #333; font: 500 18px 'Noto Sans KR', sans-serif; cursor: pointer; }
+    .pill { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.85); color:#333; border-radius: 999px; border: 1px solid rgba(255,255,255,0.6); padding: 10px 16px; box-shadow: 0 10px 28px rgba(0,0,0,0.2); font: 500 14px 'Noto Sans KR', sans-serif; }
+    .hud { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.6); color:#333; border-radius: 16px; padding: 14px; border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 10px 32px rgba(0,0,0,0.2); width: 240px; }
+    .hud .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .hud .k { font: 300 12px 'Noto Sans KR', sans-serif; color:#555; }
+    .hud .v { font: 400 18px 'Noto Sans KR', sans-serif; color:#222; }
+    .top-right { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; }
+    .ghost { background: rgba(0,0,0,0.35); color:#fff; border: 1px solid rgba(255,255,255,0.35); }
+  </style>
+</head>
+<body>
+  <div class="root">
+    <canvas id="gardenCanvas"></canvas>
+    <div class="overlay">
+      <div class="top-right panel">
+        <button class="btn ghost" id="btnRestart">다시 시작</button>
+        <button class="btn ghost" id="btnClose">닫기</button>
+      </div>
+
+      <div class="welcome panel" id="welcomePanel">
+        <div class="card">
+          <h1 class="title">Emotion Garden</h1>
+          <p class="subtitle">브러시 효과 결과 이미지를 배경으로, 당신의 감정에 공감하는 메시지를 찾아보세요.</p>
+
+          <div>
+            <div class="label">현재 감정 상태</div>
+            <select class="select" id="selectEmotion">
+              <option value="joy">기쁨</option>
+              <option value="sadness">슬픔</option>
+              <option value="anger">분노</option>
+              <option value="fear">두려움</option>
+              <option value="anxiety">불안</option>
+              <option value="love">사랑</option>
+              <option value="gratitude">감사</option>
+              <option value="loneliness">외로움</option>
+              <option value="peace">평온</option>
+              <option value="excitement">흥분</option>
+              <option value="neutral">중립</option>
+            </select>
+
+            <div class="label">감정 강도: <span id="intensityText">60%</span></div>
+            <input type="range" min="0" max="1" step="0.1" value="0.6" class="range" id="rangeIntensity" />
+
+            <div class="label">배경 이미지 (선택) — 자동으로 브러시 결과를 불러옵니다</div>
+            <input type="file" accept="image/*" class="file" id="fileInput" />
+          </div>
+
+          <div style="margin-top: 22px;">
+            <button class="btn" id="btnStart">감정 정원 시작하기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud panel" id="hudPanel" style="display:none;">
+        <div class="row">
+          <div class="k">탐험 시간</div>
+          <div class="v" id="txtTime">0:00</div>
+        </div>
+        <div class="row">
+          <div class="k">현재 감정</div>
+          <div class="v" id="txtEmotion">중립</div>
+        </div>
+        <div class="row">
+          <div class="k">메시지</div>
+          <div class="v" id="txtMsgCount">0</div>
+        </div>
+        <button class="btn" id="btnFinish" style="width:100%; margin-top:6px;">탐험 마치기</button>
+      </div>
+
+      <div class="results panel" id="resultsPanel" style="display:none;">
+        <div class="card" style="max-width:640px;">
+          <h2 class="title" style="font-size:30px;">감정 여행의 기록</h2>
+          <div class="subtitle" style="margin-bottom: 16px;">
+            <span id="summaryTime">0:00</span> 동안 <span id="summaryCount">0</span>개의 메시지를 발견했어요.
+          </div>
+          <div id="messageList" style="max-height:260px; overflow:auto; text-align:left; padding:12px; background: rgba(255,255,255,0.6); border-radius:12px;"></div>
+          <div style="margin-top:18px;">
+            <button class="btn" id="btnNew">새로운 감정 여행하기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pill panel" id="hint" style="display:none;">잔디를 클릭하여 감정 메시지를 발견하세요 🌱💝</div>
+    </div>
+  </div>
+
+  <script>
+    const STATIC_GRASS = true; // 잔디 고정 모드
+    // ====== 유틸: 초기 데이터 수집 (배경/감정) ======
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    function pickBackgroundUrl() {
+      // 우선순위: URL bg -> localStorage.imageBase64 -> localStorage.processedImageUrl -> localStorage.brushResultImageUrl
+      const fromUrl = getQueryParam('bg');
+      if (fromUrl) return decodeURIComponent(fromUrl);
+      const imageBase64 = localStorage.getItem('imageBase64');
+      if (imageBase64) return imageBase64;
+      const processed = localStorage.getItem('processedImageUrl');
+      if (processed) return processed;
+      const brush = localStorage.getItem('brushResultImageUrl');
+      if (brush) return brush;
+      return null;
+    }
+
+    function normalizeEmotion(raw) {
+      if (!raw) return 'neutral';
+      const key = String(raw).toLowerCase();
+      const map = {
+        happy: 'joy', happiness: 'joy', joy: 'joy',
+        sad: 'sadness', sadness: 'sadness',
+        angry: 'anger', anger: 'anger',
+        fear: 'fear', fearful: 'fear',
+        disgust: 'anxiety', contempt: 'anxiety', anxiety: 'anxiety',
+        love: 'love',
+        gratitude: 'gratitude',
+        loneliness: 'loneliness',
+        peace: 'peace', calm: 'peace', neutral: 'neutral',
+        surprise: 'excitement', surprised: 'excitement', excitement: 'excitement'
+      };
+      return map[key] || 'neutral';
+    }
+
+    function pickEmotion() {
+      const fromUrl = getQueryParam('emotion');
+      if (fromUrl) return normalizeEmotion(fromUrl);
+      const lsEmotion = localStorage.getItem('emotion');
+      if (lsEmotion) return normalizeEmotion(lsEmotion);
+      try {
+        const analysis = JSON.parse(localStorage.getItem('emotionAnalysis') || 'null');
+        if (analysis && analysis.emotion) return normalizeEmotion(analysis.emotion);
+      } catch {}
+      return 'neutral';
+    }
+
+    function pickIntensity() {
+      const fromUrl = parseFloat(getQueryParam('intensity'));
+      if (!Number.isNaN(fromUrl)) return Math.min(1, Math.max(0, fromUrl));
+      try {
+        const analysis = JSON.parse(localStorage.getItem('emotionAnalysis') || 'null');
+        if (analysis && (typeof analysis.confidence === 'number')) {
+          return Math.min(1, Math.max(0, analysis.confidence));
+        }
+      } catch {}
+      return 0.6;
+    }
+
+    // ====== 상태 ======
+    const state = {
+      canvas: null,
+      ctx: null,
+      screen: { width: window.innerWidth, height: window.innerHeight },
+      phase: 'welcome',
+      transitioning: false,
+      emotion: 'neutral',
+      intensity: 0.6,
+      particles: [],
+      grass: [],
+      hiddenSpots: [],
+      floatingMessages: [],
+      emojis: [],
+      activeMsgPositions: [],
+      backgroundImage: null,
+      timerRunning: false,
+      secondsExploring: 0,
+      timerInterval: null,
+      foundMessages: []
+    };
+
+    const el = {
+      welcome: null, results: null, hud: null, hint: null,
+      selectEmotion: null, rangeIntensity: null, intensityText: null,
+      txtTime: null, txtEmotion: null, txtMsgCount: null,
+      messageList: null, summaryTime: null, summaryCount: null,
+      btnStart: null, btnFinish: null, btnNew: null, btnClose: null, btnRestart: null, fileInput: null
+    };
+
+    // ====== 감정 타입/이모지 ======
+    const emotionTypes = {
+      joy: { color: '#FFD700', particles: 'sparkles', label: '기쁨' },
+      sadness: { color: '#4A90E2', particles: 'tears', label: '슬픔' },
+      anger: { color: '#FF6B6B', particles: 'flames', label: '분노' },
+      fear: { color: '#9B59B6', particles: 'shadows', label: '두려움' },
+      anxiety: { color: '#95A5A6', particles: 'swirls', label: '불안' },
+      love: { color: '#E91E63', particles: 'hearts', label: '사랑' },
+      gratitude: { color: '#27AE60', particles: 'light', label: '감사' },
+      loneliness: { color: '#7F8C8D', particles: 'mist', label: '외로움' },
+      peace: { color: '#3498DB', particles: 'bubbles', label: '평온' },
+      excitement: { color: '#F39C12', particles: 'confetti', label: '흥분' },
+      neutral: { color: '#BDC3C7', particles: 'dots', label: '중립' }
+    };
+
+    const emojiMap = {
+      joy: ['🌻','🌸','✨','💛','☀️','🌈'],
+      sadness: ['💧','🌧️','💙','🌙','💜'],
+      anger: ['🔥','⚡','💥','🌋'],
+      fear: ['🌫️','👻','🌪️','💨'],
+      anxiety: ['🌪️','💭','😰','🌊'],
+      love: ['💖','🌹','💕','💗','🥰'],
+      gratitude: ['🙏','✨','🌟','💚','🌺'],
+      loneliness: ['🌙','⭐','🕯️','💙','🌌'],
+      peace: ['🕊️','🌸','☁️','🤍','🌿'],
+      excitement: ['🎉','🎊','⚡','🌟','💥'],
+      neutral: ['🌿','🍃','💫','🌱','✨']
+    };
+
+    // ====== 메시지 예시 (축약본) ======
+    const messageExamples = {
+      joy: {
+        gentle: [
+          '기쁨은 삶의 아름다운 순간들을 만들어갑니다',
+          '행복은 마음의 선택이며 지금 이 순간에 존재합니다'
+        ],
+        understanding: [
+          '행복한 마음은 희망의 씨앗을 심어줍니다'
+        ],
+        deep: [
+          '행복은 목적지가 아니라 여행 그 자체입니다'
+        ]
+      },
+      sadness: {
+        gentle: [
+          '눈물은 마음의 정화이며 새로운 시작의 준비입니다'
+        ],
+        understanding: [
+          '슬픔은 사랑했다는 증명입니다'
+        ],
+        deep: [
+          '슬픔 뒤에는 새로운 희망의 문이 열려있습니다'
+        ]
+      },
+      anger: {
+        gentle: ['분노는 소중한 것을 지키려는 마음에서 나옵니다'],
+        understanding: ['분노는 변화를 위한 에너지입니다'],
+        deep: ['분노 뒤의 상처를 치유할 때 평화를 찾습니다']
+      },
+      fear: {
+        gentle: ['용기는 두려움과 함께 걸어가는 것입니다'],
+        understanding: ['두려움은 소중한 것을 지키려는 신호입니다'],
+        deep: ['두려움을 마주할 때 진정한 자신을 발견합니다']
+      },
+      anxiety: {
+        gentle: ['불안할 땐 호흡에 집중하며 현재로 돌아오세요'],
+        understanding: ['걱정은 세심함의 또 다른 표현입니다'],
+        deep: ['불안은 현재에 집중하라는 신호입니다']
+      },
+      love: { gentle: ['사랑은 가장 강력한 에너지입니다'], understanding: ['자신을 사랑하는 법부터'], deep: ['사랑은 영혼의 확장입니다'] },
+      gratitude: { gentle: ['감사는 작은 기적을 발견하게 합니다'], understanding: ['감사는 풍요로움에 초점'], deep: ['감사는 현재를 선물로 받아들이는 실천'] },
+      loneliness: { gentle: ['외로운 시간은 자신과 만나는 기회'], understanding: ['더 깊은 관계를 원하는 마음'], deep: ['외로움 속에서 진정한 자아를 만납니다'] },
+      peace: { gentle: ['평온은 내면의 안식처입니다'], understanding: ['불완전함을 받아들일 때 평화가 옵니다'], deep: ['진정한 평온은 영혼의 자유'] },
+      excitement: { gentle: ['설렘은 아름다운 에너지'], understanding: ['흥분은 삶에 참여한다는 신호'], deep: ['현재에 몰입할 때 생명의 충만함'] },
+      neutral: { gentle: ['고요함 속에 지혜가 있습니다'], understanding: ['차분함은 세련된 아름다움'], deep: ['평온은 외부에 의존하지 않습니다'] }
+    };
+
+    // ====== 초기화 ======
+    function initDom() {
+      state.canvas = document.getElementById('gardenCanvas');
+      state.ctx = state.canvas.getContext('2d');
+      el.welcome = document.getElementById('welcomePanel');
+      el.results = document.getElementById('resultsPanel');
+      el.hud = document.getElementById('hudPanel');
+      el.hint = document.getElementById('hint');
+      el.selectEmotion = document.getElementById('selectEmotion');
+      el.rangeIntensity = document.getElementById('rangeIntensity');
+      el.intensityText = document.getElementById('intensityText');
+      el.txtTime = document.getElementById('txtTime');
+      el.txtEmotion = document.getElementById('txtEmotion');
+      el.txtMsgCount = document.getElementById('txtMsgCount');
+      el.messageList = document.getElementById('messageList');
+      el.summaryTime = document.getElementById('summaryTime');
+      el.summaryCount = document.getElementById('summaryCount');
+      el.btnStart = document.getElementById('btnStart');
+      el.btnFinish = document.getElementById('btnFinish');
+      el.btnNew = document.getElementById('btnNew');
+      el.btnClose = document.getElementById('btnClose');
+      el.btnRestart = document.getElementById('btnRestart');
+      el.fileInput = document.getElementById('fileInput');
+
+      resizeCanvas();
+      window.addEventListener('resize', () => { state.screen = { width: window.innerWidth, height: window.innerHeight }; resizeCanvas(); /* 잔디 고정: 재생성하지 않음 */ });
+      state.canvas.addEventListener('mousemove', handleMouseMove);
+      state.canvas.addEventListener('mouseleave', handleMouseLeave);
+      state.canvas.addEventListener('click', handleCanvasClick);
+
+      el.rangeIntensity.addEventListener('input', () => {
+        state.intensity = parseFloat(el.rangeIntensity.value);
+        el.intensityText.textContent = Math.round(state.intensity * 100) + '%';
+        rebuildSpotsAndParticles();
+      });
+      el.selectEmotion.addEventListener('change', () => {
+        state.emotion = el.selectEmotion.value;
+        updateHUDEmotion();
+        rebuildSpotsAndParticles();
+      });
+      el.btnStart.addEventListener('click', startExploration);
+      el.btnFinish.addEventListener('click', finishExploration);
+      el.btnNew.addEventListener('click', restartGame);
+      el.btnClose.addEventListener('click', () => window.close());
+      el.btnRestart.addEventListener('click', restartGame);
+      el.fileInput.addEventListener('change', onFileSelected);
+    }
+
+    function resizeCanvas() {
+      state.canvas.width = state.screen.width;
+      state.canvas.height = state.screen.height;
+    }
+
+    function onFileSelected(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => { state.backgroundImage = img; };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ====== 데이터 로드 ======
+    function loadBackgroundImageIfAny() {
+      const url = pickBackgroundUrl();
+      if (!url) return;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { state.backgroundImage = img; };
+      img.src = url;
+    }
+
+    // ====== 파티클/잔디/스팟 ======
+    function rebuildSpotsAndParticles() { buildParticles(); buildHiddenSpots(); }
+    function rebuildGrassAndSpots() { buildGrass(); buildHiddenSpots(); }
+
+    function buildParticles() {
+      const info = emotionTypes[state.emotion] || emotionTypes.neutral;
+      const count = Math.floor(state.intensity * 20) + 5;
+      const arr = [];
+      for (let i=0;i<count;i++) {
+        arr.push({
+          x: Math.random() * state.screen.width,
+          y: Math.random() * state.screen.height,
+          size: Math.random() * 3 + 1,
+          opacity: Math.random() * 0.3 + 0.1,
+          speed: Math.random() * 0.5 + 0.2,
+          angle: Math.random() * Math.PI * 2,
+          color: info.color,
+          type: info.particles
+        });
+      }
+      state.particles = arr;
+    }
+
+    function randomGrassColor() {
+      const hue = 100 + Math.random() * 30;
+      const saturation = 70;
+      const lightness = 25 + Math.random() * 20;
+      return `hsl(${hue} ${saturation}% ${lightness}%)`;
+    }
+
+    function buildGrass() {
+      const count = Math.floor((state.screen.width * state.screen.height) / 500);
+      const arr = [];
+      for (let i=0;i<count;i++) {
+        arr.push({
+          x: Math.random() * state.screen.width,
+          baseY: state.screen.height - 10 - Math.random() * 200,
+          height: 40 + Math.random() * 60,
+          angle: 0,
+          targetAngle: 0,
+          width: 2 + Math.random() * 3,
+          sway: STATIC_GRASS ? 0 : Math.random() * Math.PI * 2,
+          swaySpeed: STATIC_GRASS ? 0 : 0.02 + Math.random() * 0.03,
+          swayIntensity: STATIC_GRASS ? 0 : 0.01 + Math.random() * 0.03,
+          springiness: 0.05 + Math.random() * 0.05,
+          color: randomGrassColor()
+        });
+      }
+      state.grass = arr;
+    }
+
+    function buildHiddenSpots() {
+      const spots = [];
+      const count = Math.floor(state.intensity * 20) + 12;
+      const m = 40;
+      for (let i=0;i<count;i++) {
+        spots.push({
+          x: m + Math.random() * (state.screen.width - 2*m),
+          y: m + Math.random() * (state.screen.height - 2*m),
+          found: false,
+          resonance: Math.random()
+        });
+      }
+      state.hiddenSpots = spots;
+    }
+
+    // ====== 애니메이션 루프 ======
+    let rafId = 0;
+    function draw() {
+      const ctx = state.ctx; if (!ctx) return;
+      ctx.clearRect(0, 0, state.screen.width, state.screen.height);
+
+      // 1) 배경 이미지 contain으로 그리기 (비율 유지, 전체 보임)
+      if (state.backgroundImage) {
+        drawContain(ctx, state.backgroundImage, state.screen.width, state.screen.height, 0.9);
+      }
+
+      // 2) 탐험 단계 오버레이
+      if (state.phase === 'exploring') {
+        const info = emotionTypes[state.emotion] || emotionTypes.neutral;
+        const gradient = ctx.createRadialGradient(
+          state.screen.width/2, state.screen.height/2, 0,
+          state.screen.width/2, state.screen.height/2, state.screen.width
+        );
+        gradient.addColorStop(0, info.color + '20');
+        gradient.addColorStop(1, info.color + '08');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0,0,state.screen.width,state.screen.height);
+      }
+
+      // 3) 파티클
+      state.particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+        if (p.x < 0) p.x = state.screen.width;
+        if (p.x > state.screen.width) p.x = 0;
+        if (p.y < 0) p.y = state.screen.height;
+        if (p.y > state.screen.height) p.y = 0;
+        ctx.restore();
+      });
+
+      // 4) 잔디
+      state.grass.forEach(blade => {
+        let natural = 0;
+        if (!STATIC_GRASS) {
+          const d = blade.targetAngle - blade.angle;
+          blade.angle += d * blade.springiness;
+          blade.sway += blade.swaySpeed;
+          natural = Math.sin(blade.sway) * blade.swayIntensity;
+        } else {
+          blade.angle = 0;
+          blade.targetAngle = 0;
+        }
+        ctx.save();
+        ctx.translate(blade.x, blade.baseY);
+        ctx.rotate(blade.angle + natural);
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.quadraticCurveTo(blade.width/2, -blade.height/2, 0, -blade.height);
+        ctx.quadraticCurveTo(-blade.width/2, -blade.height/2, 0, 0);
+        ctx.fillStyle = blade.color;
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 5) 이모지
+      state.emojis.forEach(emoji => {
+        ctx.save();
+        ctx.globalAlpha = emoji.opacity;
+        ctx.font = emoji.size + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+        ctx.textAlign = 'center';
+        ctx.fillText(emoji.symbol, emoji.x, emoji.y);
+        ctx.restore();
+      });
+
+      // 6) 플로팅 메시지 (exploring 일 때만)
+      if (state.phase === 'exploring') {
+        state.floatingMessages.forEach(m => {
+          const padding = 18;
+          const lines = m.text.split('\n');
+          const fontSize = 18 + m.scale * 6;
+          const lineHeight = fontSize * 1.4;
+          const boxH = lines.length * lineHeight + padding * 2;
+          ctx.font = '500 ' + fontSize + 'px "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif';
+          const maxW = Math.max(...lines.map(line => ctx.measureText(line).width));
+          const boxW = maxW + padding * 2;
+          const boxX = m.x - boxW/2; const boxY = m.y - boxH - 10;
+
+          // 그림자
+          ctx.globalAlpha = m.opacity * 0.3; ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          ctx.fillRect(boxX+3, boxY+3, boxW, boxH);
+          // 박스
+          ctx.globalAlpha = m.opacity * 0.95; ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          roundRect(ctx, boxX, boxY, boxW, boxH, 12);
+          ctx.fill();
+          // 테두리
+          ctx.globalAlpha = m.opacity * 0.45; ctx.strokeStyle = m.color; ctx.lineWidth = 2; ctx.stroke();
+          // 텍스트
+          ctx.globalAlpha = m.opacity; ctx.fillStyle = '#2D3748'; ctx.textAlign = 'center';
+          lines.forEach((line, i) => { const y = boxY + padding + fontSize + (i * lineHeight); ctx.fillText(line, m.x, y); });
+          // 포인트
+          ctx.globalAlpha = m.opacity * 0.8; ctx.fillStyle = m.color; ctx.beginPath(); ctx.arc(boxX + boxW - 10, boxY + 10, 4, 0, Math.PI*2); ctx.fill();
+        });
+      }
+
+      rafId = requestAnimationFrame(draw);
+    }
+
+    function drawContain(ctx, img, vw, vh, alpha=1) {
+      const iw = img.naturalWidth || img.width; const ih = img.naturalHeight || img.height;
+      const vr = vw / vh; const ir = iw / ih;
+      let dw, dh, dx, dy;
+      if (ir > vr) { // 이미지가 더 넓음 → 폭 맞추고 상하 레터박스
+        dw = vw; dh = vw / ir; dx = 0; dy = (vh - dh) / 2;
+      } else { // 이미지가 더 높음 → 높이 맞추고 좌우 레터박스
+        dh = vh; dw = vh * ir; dy = 0; dx = (vw - dw) / 2;
+      }
+      ctx.save(); ctx.globalAlpha = alpha; ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.lineTo(x+w-r, y);
+      ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+      ctx.lineTo(x+w, y+h-r);
+      ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+      ctx.lineTo(x+r, y+h);
+      ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+      ctx.lineTo(x, y+r);
+      ctx.quadraticCurveTo(x, y, x+r, y);
+      ctx.closePath();
+    }
+
+    // ====== 상호작용 ======
+    function handleMouseMove(e) {
+      if (state.phase !== 'exploring') return;
+      if (STATIC_GRASS) return; // 고정 모드에서는 각도 변경 안 함
+      const rect = state.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+      const newGrass = state.grass.map(b => {
+        const dist = Math.hypot(b.x - x, b.baseY - y);
+        const radius = 100;
+        if (dist < radius) {
+          const strength = (radius - dist) / radius;
+          const dx = b.x - x; const angle = Math.atan2(dx, 50) * strength * 0.5;
+          return { ...b, targetAngle: angle };
+        }
+        return { ...b, targetAngle: 0 };
+      });
+      state.grass = newGrass;
+    }
+
+    function handleMouseLeave() {
+      if (STATIC_GRASS) return;
+      state.grass = state.grass.map(b => ({ ...b, targetAngle: 0 }));
+    }
+
+    function handleCanvasClick(e) {
+      if (state.phase !== 'exploring') return;
+      const rect = state.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+      state.hiddenSpots.forEach((spot, idx) => {
+        if (!spot.found) {
+          const d = Math.hypot(spot.x - x, spot.y - y);
+          if (d < 110) {
+            createEmotionMessage(spot.x, spot.y, spot.resonance);
+            createEmotionEmoji(spot.x, spot.y);
+            const m = 40; const next = { x: m + Math.random() * (state.screen.width - 2*m), y: m + Math.random() * (state.screen.height - 2*m), found: false, resonance: Math.random() };
+            const clone = state.hiddenSpots.slice(); clone[idx] = next; state.hiddenSpots = clone;
+          }
+        }
+      });
+    }
+
+    // ====== 메시지/이모지 ======
+    let creating = false;
+    function createEmotionMessage(x, y, resonance) {
+      if (creating) return; creating = true;
+      const info = emotionTypes[state.emotion] || emotionTypes.neutral;
+      let type = 'gentle'; let color = info.color;
+      if (resonance < 0.4) type = 'gentle'; else if (resonance < 0.7) type = 'understanding'; else { type = 'deep'; color = '#8E44AD'; }
+      const examples = (messageExamples[state.emotion] || messageExamples.neutral)[type] || messageExamples.neutral.gentle;
+      const text = examples[Math.floor(Math.random() * examples.length)] || '당신의 감정을 이해하고 함께하겠습니다';
+      addMessage(text, x, y, color, type);
+      setTimeout(() => creating = false, 50);
+    }
+
+    function addMessage(text, x, y, color, type) {
+      state.foundMessages.push({ text, color, time: state.secondsExploring, type });
+      showFloatingMessage(text, x, y, color);
+      el.txtMsgCount.textContent = String(state.foundMessages.length);
+    }
+
+    function showFloatingMessage(text, x, y, color) {
+      const maxLen = 25;
+      let t = text;
+      if (t.length > maxLen) {
+        const mid = Math.floor(t.length / 2); t = t.substring(0, mid) + '\n' + t.substring(mid);
+      }
+      let px = x; let py = y - 100; const padding = 150; const minDist = 200; let tries = 0; let ok = false;
+      while (!ok && tries < 10) {
+        let coll = false; for (const p of state.activeMsgPositions) { if (Math.hypot(px - p.x, py - p.y) < minDist) { coll = true; break; } }
+        if (!coll) ok = true; else {
+          const ang = (tries * Math.PI * 2) / 8; const off = 80 + (tries * 20); px = x + Math.cos(ang) * off; py = y - 100 + Math.sin(ang) * off;
+          if (px < padding) px = padding; if (px > state.screen.width - padding) px = state.screen.width - padding;
+          if (py < 120) py = 120; if (py > state.screen.height - 120) py = state.screen.height - 120;
+          tries++;
+        }
+      }
+      const pos = { x: px, y: py, timestamp: Date.now() };
+      state.activeMsgPositions = state.activeMsgPositions.filter(p => Date.now() - p.timestamp < 5000).concat([pos]);
+      state.floatingMessages.push({ text: t, x: px, y: py, opacity: 1, scale: 0, color });
+    }
+
+    function createEmotionEmoji(x, y) {
+      const list = emojiMap[state.emotion] || emojiMap.neutral; const sym = list[Math.floor(Math.random()*list.length)];
+      state.emojis.push({ symbol: sym, x: x + (Math.random()-0.5)*30, y: y + Math.random()*10, opacity: 1, size: 24 + Math.random()*8, speed: 1.5 + Math.random()*1 });
+    }
+
+    // ====== 타이머/루프 업데이트 ======
+    function startTimer() {
+      stopTimer();
+      state.timerRunning = true; const startTs = Date.now() - state.secondsExploring * 1000;
+      state.timerInterval = setInterval(() => {
+        state.secondsExploring = Math.floor((Date.now() - startTs) / 1000);
+        el.txtTime.textContent = formatTimer(state.secondsExploring);
+      }, 1000);
+    }
+    function stopTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } state.timerRunning = false; }
+    function formatTimer(total) { const m = Math.floor(total / 60); const s = total % 60; return m + ':' + String(s).padStart(2,'0'); }
+
+    // ====== 흐름 제어 ======
+    function startExploration() {
+      state.transitioning = true;
+      setTimeout(() => {
+        state.phase = 'exploring'; state.transitioning = false;
+        el.welcome.style.display = 'none'; el.hud.style.display = ''; el.hint.style.display = '';
+        startTimer();
+      }, 200);
+    }
+    function finishExploration() {
+      state.transitioning = true;
+      setTimeout(() => {
+        state.phase = 'results'; state.transitioning = false; stopTimer(); el.hud.style.display = 'none'; el.hint.style.display = 'none'; el.results.style.display = '';
+        el.summaryTime.textContent = formatTimer(state.secondsExploring); el.summaryCount.textContent = String(state.foundMessages.length);
+        renderMessageList();
+      }, 200);
+    }
+    function restartGame() {
+      state.transitioning = true;
+      setTimeout(() => {
+        state.phase = 'welcome'; state.transitioning = false; stopTimer();
+        state.secondsExploring = 0; state.foundMessages = []; state.floatingMessages = []; state.emojis = []; state.activeMsgPositions = [];
+        el.txtTime.textContent = '0:00'; el.txtMsgCount.textContent = '0';
+        el.hud.style.display = 'none'; el.hint.style.display = 'none'; el.results.style.display = 'none'; el.welcome.style.display = '';
+      }, 200);
+    }
+
+    function updateHUDEmotion() {
+      const info = emotionTypes[state.emotion] || emotionTypes.neutral; el.txtEmotion.textContent = info.label || '중립';
+    }
+
+    function renderMessageList() {
+      el.messageList.innerHTML = '';
+      if (!state.foundMessages.length) {
+        const p = document.createElement('p'); p.textContent = '아직 메시지를 찾지 못했어요. 다시 한번 감정을 탐험해보세요.'; p.style.cssText = 'color:#333; font:300 14px "Noto Sans KR", sans-serif;'; el.messageList.appendChild(p);
+        return;
+      }
+      state.foundMessages.forEach(m => {
+        const row = document.createElement('div');
+        row.style.cssText = 'margin:6px 0; padding:10px 12px; border-radius:10px; background: rgba(175,225,175,0.35); color:#222; display:flex; justify-content:space-between; align-items:center;';
+        const span = document.createElement('span'); span.textContent = m.text; span.style.cssText = 'font:400 14px "Noto Sans KR", sans-serif;';
+        const tm = document.createElement('span'); tm.textContent = formatTimer(m.time); tm.style.cssText = 'color:#555; font:300 12px "Noto Sans KR", sans-serif;';
+        row.appendChild(span); row.appendChild(tm); el.messageList.appendChild(row);
+      });
+    }
+
+    // ====== 메인 ======
+    (function main() {
+      initDom();
+
+      // 감정/강도 초기화 (분석 결과 적용)
+      state.emotion = pickEmotion();
+      state.intensity = pickIntensity();
+      el.selectEmotion.value = state.emotion;
+      el.rangeIntensity.value = String(state.intensity);
+      el.intensityText.textContent = Math.round(state.intensity * 100) + '%';
+      updateHUDEmotion();
+
+      // 배경 로드 (브러시 효과 결과)
+      loadBackgroundImageIfAny();
+
+      // 장면 구성
+      buildGrass();
+      rebuildSpotsAndParticles();
+
+      // 자동 시작: emotion 또는 bg가 있으면 바로 시작
+      const autoStart = !!pickBackgroundUrl() || getQueryParam('auto') === '1' || getQueryParam('autostart') === '1';
+      if (autoStart) startExploration();
+
+      // 루프 + 업데이트 타이머
+      rafId = requestAnimationFrame(draw);
+      setInterval(() => {
+        if (state.phase !== 'exploring') return;
+        // 이모지/메시지 페이드업데이트
+        state.emojis = state.emojis.map(e => ({ ...e, y: e.y - e.speed, opacity: e.opacity - 0.01, size: e.size + 0.2 })).filter(e => e.opacity > 0);
+        state.floatingMessages = state.floatingMessages.map(m => ({ ...m, y: m.y - 0.8, opacity: m.opacity - 0.004, scale: m.scale + 0.006 })).filter(m => m.opacity > 0);
+      }, 16);
+    })();
+  </script>
+</body>
+</html>
+
+

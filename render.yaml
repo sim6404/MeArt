@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: meart-app
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: starter
+    region: singapore
+    branch: main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: meart-app
+          property: port
+    healthCheckPath: /health
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 80
+      targetCPUPercent: 70

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact - 4D VISION</title>
+  <!-- Google Maps Embed 사용: API 키 불필요 (iframe) -->
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b1020; color: #fff; }
+    .wrap { height: 100%; display: flex; }
+    .content { margin: auto; width: min(880px, 92%); padding: 24px 20px 32px; background: rgba(255,255,255,0.06); border-radius: 14px; backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    h2 { margin: 18px 0 8px; font-size: 16px; color: #cfe1ff; }
+    .addr { line-height: 1.6; white-space: pre-line; }
+    .meta { margin-top: 10px; font-size: 14px; color: #d8e3ff; }
+    .directions p { margin: 6px 0 0; line-height: 1.6; }
+    .actions { display: flex; gap: 8px; margin-top: 18px; }
+    .btn { background: #4f8cff; border: none; color:#fff; border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn:hover { background: #6aa0ff; }
+    .map-embed { margin-top: 16px; border-radius: 10px; overflow: hidden; background: #101629; }
+    .map-embed iframe { width: 100%; height: 380px; border: 0; display: block; }
+    @media (max-width: 480px) { .map-embed iframe { height: 320px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="content">
+      <h1>오시는 길</h1>
+      <p class="addr">경기도 고양시 일산동 고봉로 32-19 남정 씨티프라자 7차 504호 (주)포디비젼</p>
+      <div class="meta">T: 031.901.4823 · F: 031.629.6029 · E: ceo@4dvision.co.kr</div>
+      <div class="directions">
+        <h2>전철과 도보 이용시</h2>
+        <p>정발산역(3호선) 2번 출입구에서 직진(500m) → 일산 소방서와 SK브로드밴드 사이길(200m) → 두 번째 사거리에서 오른쪽으로 다시(200m) → 장항제2공영주차장 좌측건물</p>
+        <h2>자동차 이용시</h2>
+        <p>자유로 장항IC 진입 → 장항지하차도</p>
+      </div>
+      <div class="map-embed" aria-label="구글 지도">
+        <iframe 
+          src="https://www.google.com/maps?q=%EA%B2%BD%EA%B8%B0%EB%8F%84%20%EA%B3%A0%EC%96%91%EC%8B%9C%20%EC%9D%BC%EC%82%B0%EB%8F%99%20%EA%B3%A0%EB%B4%89%EB%A1%9C%2032-19%20%EB%82%A8%EC%A0%95%20%EC%94%A8%ED%8B%B0%ED%94%84%EB%9D%BC%EC%9E%90%207%EC%B0%A8%20504%ED%98%B8%20%28%EC%A3%BC%29%ED%8F%AC%EB%94%94%EB%B9%84%EC%A0%84&hl=ko&z=16&output=embed" 
+          loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen
+          title="4D VISION 오시는 길">
+        </iframe>
+      </div>
+      <div class="actions">
+        <a class="btn" href="https://www.4dvision.co.kr/contact" target="_blank" rel="noopener">공식 페이지 열기</a>
+        <a class="btn" href="https://www.google.com/maps/search/?api=1&query=%EA%B2%BD%EA%B8%B0%EB%8F%84%20%EA%B3%A0%EC%96%91%EC%8B%9C%20%EC%9D%BC%EC%82%B0%EB%8F%99%20%EA%B3%A0%EB%B4%89%EB%A1%9C%2032-19%20%EB%82%A8%EC%A0%95%20%EC%94%A8%ED%8B%B0%ED%94%84%EB%9D%BC%EC%9E%90%207%EC%B0%A8%20504%ED%98%B8%20%28%EC%A3%BC%29%ED%8F%AC%EB%94%94%EB%B9%84%EC%A0%84" target="_blank" rel="noopener">구글 지도에서 열기</a>
+        <button class="btn" onclick="window.close()">닫기</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const address = '경기도 고양시 일산동 고봉로 32-19 남정 씨티프라자 7차 504호 (주)포디비젼';
+      const mapContainerId = 'map';
+      const metaKey = document.querySelector('meta[name="google-maps-api-key"]')?.content?.trim();
+      const apiKey = (window.GOOGLE_MAPS_API_KEY || localStorage.getItem('GOOGLE_MAPS_API_KEY') || metaKey || '').trim();
+
+      function showMessage(html) {
+        const mapDiv = document.getElementById(mapContainerId);
+        if (!mapDiv) return;
+        mapDiv.style.display = 'grid';
+        mapDiv.style.placeItems = 'center';
+        mapDiv.innerHTML = html;
+      }
+
+      if (!apiKey) {
+        showMessage('<div style="text-align:center; font-size:14px; color:#cfe1ff;">구글 지도를 표시하려면 API 키가 필요합니다.<br/><span style="opacity:.8">브라우저 콘솔에서 다음을 실행하세요:</span><br/><code style="background:rgba(255,255,255,.12); padding:2px 6px; border-radius:6px; display:inline-block; margin-top:6px;">localStorage.setItem(\'GOOGLE_MAPS_API_KEY\', \'여기에_API_KEY\')</code><br/><span style="opacity:.8">또는 &lt;meta name=\'google-maps-api-key\' content=\'...\'&gt;를 설정하고 새로고침하세요.</span></div>');
+        return;
+      }
+
+      window.initMap = function() {
+        const mapDiv = document.getElementById(mapContainerId);
+        if (!mapDiv || !window.google || !google.maps) return;
+        const map = new google.maps.Map(mapDiv, {
+          zoom: 16,
+          center: { lat: 37.5665, lng: 126.9780 },
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false
+        });
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const loc = results[0].geometry.location;
+            map.setCenter(loc);
+            const marker = new google.maps.Marker({ position: loc, map });
+            const info = new google.maps.InfoWindow({ content: `<div style="padding:8px 10px; font-size:12px; line-height:1.4;">4D VISION<br>${address}</div>` });
+            marker.addListener('click', () => info.open({ anchor: marker, map }));
+            // info.open({ anchor: marker, map }); // 필요 시 초기 표시
+          } else {
+            showMessage('<div style="text-align:center; font-size:14px; color:#cfe1ff;">지오코딩 실패로 지도를 표시할 수 없습니다.<br/><span style="opacity:.8">상단의 \"구글 지도에서 열기\" 버튼을 사용하세요.</span></div>');
+          }
+        });
+      };
+
+      const s = document.createElement('script');
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=initMap`;
+      s.async = true;
+      s.defer = true;
+      s.onerror = function() {
+        showMessage('<div style="text-align:center; font-size:14px; color:#cfe1ff;">구글 지도 스크립트를 불러오지 못했습니다.<br/><span style="opacity:.8">API 키와 도메인 허용(예: http://localhost:9000)을 확인하세요.</span></div>');
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
+</body>
+</html>
+
+

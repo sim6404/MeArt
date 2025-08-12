@@ -1,0 +1,4589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>MeArt - AI 감정 아트 생성기</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    
+            <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+        <script src="firebase-config.js"></script>
+    
+    <style>
+        /* CSS Reset & Base */
+        *, ::before, ::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #0079F2;
+            --primary-bg: #0079F210;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --background: #ffffff;
+            --surface: #f8f9fa;
+            --border: #e5e7eb;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--background);
+            overflow-x: hidden;
+        }
+
+        /* Container */
+        .tux-container {
+            width: 100%;
+            min-height: 100vh;
+            background: var(--background);
+        }
+
+        /* Floating Menu */
+        .tux-floating-menu {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 1000;
+        }
+
+        .tux-menu-toggle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: var(--background);
+            box-shadow: 0 4px 20px var(--shadow);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .tux-menu-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px var(--shadow);
+        }
+
+        /* Menu Dropdown */
+        .tux-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            min-width: 200px;
+            background: var(--background);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .tux-menu-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Hover functionality for menu */
+        .tux-floating-menu:hover .tux-menu-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Ensure menu stays open when hovering over dropdown */
+        .tux-menu-dropdown:hover {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .tux-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tux-menu-item:hover {
+            background: var(--surface);
+            color: var(--primary-color);
+        }
+
+        .tux-menu-item:not(:last-child) {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tux-menu-item svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        /* Hero Section */
+        .tux-hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: var(--gradient-primary);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Video Background */
+        .hero-video-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .hero-video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 2;
+        }
+
+        .tux-hero-content {
+            max-width: 800px;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 3;
+        }
+
+        .tux-hero-title {
+            font-size: clamp(4rem, 8vw, 8rem);
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            margin-bottom: 1rem;
+            line-height: 0.9;
+            background: linear-gradient(45deg, #ffffff, #f0f8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tux-hero-subtitle {
+            font-size: clamp(1.5rem, 3vw, 2.5rem);
+            font-weight: 300;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .tux-hero-description {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            opacity: 0.8;
+            margin-bottom: 4rem;
+        }
+
+        .tux-scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            opacity: 0.7;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-10px); }
+            60% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* Main Content */
+        .tux-main-content {
+            padding: 4rem 2rem 2rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tux-upload-section {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .tux-section-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Upload Area */
+        .tux-upload-area {
+            border: 3px dashed var(--border);
+            border-radius: 20px;
+            padding: 4rem 2rem;
+            margin: 2rem 0;
+            background: var(--surface);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tux-upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .tux-upload-area:hover {
+            border-color: var(--primary-color);
+            background: var(--primary-bg);
+            transform: translateY(-2px);
+        }
+
+        .tux-upload-area:hover::before {
+            left: 100%;
+        }
+
+        .tux-upload-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .tux-upload-icon {
+            width: 48px;
+            height: 48px;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .tux-upload-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .tux-upload-hint {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Controls Section */
+        .tux-controls-section {
+            margin-top: 3rem;
+        }
+
+        .tux-controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Buttons */
+        .tux-btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tux-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .tux-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .tux-btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .tux-btn-secondary {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .tux-btn-danger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .tux-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .tux-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--shadow);
+        }
+
+        /* Preview Section */
+        .preview-section {
+            margin-top: 3rem;
+            padding: 2rem;
+            background: var(--surface);
+            border-radius: 20px;
+            display: none;
+        }
+
+        .preview-section.show {
+            display: block;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .preview-item {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .preview-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .preview-image {
+            width: 100%;
+            height: auto;
+            max-height: none;
+            object-fit: contain;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.2s ease;
+        }
+        
+        .preview-image:hover {
+            transform: scale(1.02);
+        }
+
+        /* Gallery Modal */
+        .gallery-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            backdrop-filter: blur(5px);
+        }
+
+        .gallery-modal.show {
+            display: flex;
+        }
+
+        .gallery-content {
+            background: var(--background);
+            border-radius: 16px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .gallery-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: between;
+            background: var(--surface);
+        }
+
+        .gallery-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            flex: 1;
+        }
+
+        .gallery-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+
+        .gallery-close:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .gallery-grid {
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .gallery-item {
+            background: var(--surface);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-color: var(--primary-color);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .gallery-item-info {
+            padding: 1rem;
+        }
+
+        .gallery-item-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .gallery-item-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Auth Modal */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .auth-modal.show {
+            display: flex;
+        }
+
+        .auth-content {
+            background: var(--background);
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .auth-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .auth-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+
+        .auth-close:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .auth-form {
+            padding: 2rem;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 1rem;
+        }
+
+        .auth-btn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-switch {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .auth-switch a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .auth-switch a:hover {
+            text-decoration: underline;
+        }
+
+        .auth-error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .auth-success {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* Animation for notifications */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 2rem 0;
+            display: none;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Bottom Menu */
+        .tux-bottom-menu {
+            background: var(--text-primary);
+            color: white;
+            padding: 4rem 2rem 2rem;
+            margin-top: 6rem;
+        }
+
+        .tux-bottom-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tux-bottom-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .tux-bottom-brand h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tux-bottom-brand p {
+            opacity: 0.8;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+        }
+
+        .copyright {
+            opacity: 0.6;
+            font-size: 0.9rem;
+        }
+
+        .tux-bottom-section h4 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .tux-bottom-links {
+            list-style: none;
+        }
+
+        .tux-bottom-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .tux-bottom-links a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .tux-bottom-links a:hover {
+            color: white;
+        }
+
+        .tux-bottom-footer {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tux-bottom-tagline {
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        .tux-social-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .tux-social-links a {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .tux-social-links a:hover {
+            background: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .tux-floating-menu {
+                top: 1rem;
+                right: 1rem;
+            }
+
+            .tux-hero-content {
+                padding: 0 1rem;
+            }
+
+            .tux-main-content {
+                padding: 2rem 1rem;
+            }
+
+            .tux-upload-area {
+                padding: 2rem 1rem;
+            }
+
+            .tux-controls-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .tux-bottom-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .tux-bottom-footer {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+        }
+
+        /* Hidden elements */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Emotion Analysis Results */
+        .emotion-results {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 20px var(--shadow);
+        }
+
+        .emotion-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .emotion-item:last-child {
+            border-bottom: none;
+        }
+
+        .emotion-bar {
+            width: 100px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .emotion-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* Emotion Game Section Styles */
+        .emotion-game-section {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+
+        .emotion-game-section.show {
+            display: block;
+        }
+
+        .emotion-game-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1001;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .emotion-game-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .emotion-game-container {
+            position: relative;
+            z-index: 10;
+        }
+
+        .emotion-game-header {
+            text-align: center;
+            padding: 3rem 2rem 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .emotion-game-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .leaf-icon, .heart-icon {
+            font-size: 2rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .emotion-game-subtitle {
+            color: #e0e7ff;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .emotion-game-content {
+            position: relative;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Game Background */
+        .game-background {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.85) contrast(1.1);
+            z-index: 1;
+        }
+
+        .sky-gradient {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 0%, transparent 50%, transparent 100%);
+            z-index: 2;
+        }
+
+        .floating-clouds {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .cloud {
+            position: absolute;
+            font-size: 2rem;
+            color: rgba(255, 255, 255, 0.25);
+            animation: cloudFloat 20s ease-in-out infinite;
+        }
+
+        .grass-field-gradient {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20%;
+            background: linear-gradient(to top, rgba(34, 197, 94, 0.4) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 100%);
+            z-index: 4;
+        }
+
+        /* Emotion Selection Modal */
+        .emotion-selection-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .emotion-selection-modal.show {
+            display: flex;
+        }
+
+        .emotion-modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin: 1rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .emotion-modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #1f2937;
+        }
+
+        .emotion-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .emotion-item {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 3px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .emotion-item:hover {
+            border-color: #10b981;
+            background: #f0fdf4;
+            transform: scale(1.02);
+        }
+
+        .emotion-item.selected {
+            border-color: #10b981;
+            background: #f0fdf4;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .emotion-image {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 0.5rem;
+            border: 3px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .emotion-item.selected .emotion-image {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .emotion-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .emotion-start-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .emotion-start-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-2px);
+        }
+
+        .emotion-start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Game Interface */
+        .game-interface {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            cursor: none;
+        }
+
+        .custom-cursor {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+        }
+
+        .finger-shadow {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            font-size: 2rem;
+            opacity: 0.3;
+            filter: blur(2px);
+        }
+
+        .finger-main {
+            font-size: 2rem;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .touch-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(251, 191, 36, 0.5);
+            border-radius: 50%;
+            animation: ping 1s ease-in-out infinite;
+        }
+
+        .light-effect {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.2) 0%, rgba(34, 197, 94, 0.1) 50%, transparent 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .grass-field {
+            position: absolute;
+            inset: 0;
+            z-index: 6;
+        }
+
+        .grass-element {
+            position: absolute;
+            pointer-events: none;
+            transform-origin: bottom center;
+        }
+
+        .grass-stem {
+            background: linear-gradient(to top, 
+                hsl(110, 40%, 18%) 0%,
+                hsl(115, 35%, 25%) 30%,
+                hsl(120, 30%, 35%) 70%,
+                hsl(125, 25%, 45%) 100%);
+            border-radius: 2px;
+            box-shadow: inset 1px 0 0 rgba(255,255,255,0.2), inset -1px 0 0 rgba(0,0,0,0.1);
+        }
+
+        .grass-stripe {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 2px;
+            opacity: 0.15;
+        }
+
+        .grass-tip {
+            position: absolute;
+            top: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px 2px 0 0;
+            background: linear-gradient(to top, 
+                hsl(100, 45%, 50%), 
+                hsl(105, 50%, 60%));
+        }
+
+        /* Game Messages */
+        .game-messages {
+            position: absolute;
+            inset: 0;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .game-message {
+            position: absolute;
+            transform: translateX(-50%);
+            z-index: 1000;
+            animation: messageAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .message-container {
+            position: relative;
+        }
+
+        .message-glow {
+            position: absolute;
+            inset: -12px;
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(34, 197, 94, 0.2) 100%);
+            border-radius: 1rem;
+            filter: blur(8px);
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        .message-box {
+            position: relative;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            max-width: 280px;
+            text-align: center;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .message-sparkle {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.125rem;
+            color: #f59e0b;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        .message-text {
+            color: #1f2937;
+            font-size: 0.875rem;
+            font-weight: 300;
+            line-height: 1.5;
+            text-shadow: 0 0 3px rgba(255,255,255,0.8), 0 1px 2px rgba(255,255,255,0.6);
+        }
+
+        .message-time {
+            color: #059669;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-top: 0.75rem;
+            font-weight: 300;
+        }
+
+        .message-tail {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .message-tail::before {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid rgba(255, 255, 255, 0.95);
+        }
+
+        .message-tail::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top: 7px solid rgba(255, 255, 255, 0.8);
+        }
+
+        /* Loading Indicator */
+        .game-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        .loading-container {
+            position: relative;
+        }
+
+        .loading-glow {
+            position: absolute;
+            inset: -16px;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.5) 0%, rgba(59, 130, 246, 0.5) 100%);
+            border-radius: 50%;
+            filter: blur(16px);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .loading-content {
+            position: relative;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border: 2px solid #10b981;
+        }
+
+        .sparkles-icon {
+            font-size: 2.5rem;
+            color: #10b981;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-sparkle-1 {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: 1.25rem;
+            color: #f59e0b;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        .loading-sparkle-2 {
+            position: absolute;
+            bottom: -8px;
+            left: -8px;
+            font-size: 1.25rem;
+            color: #10b981;
+            animation: ping 1s ease-in-out infinite;
+        }
+
+        /* Instruction Message */
+        .instruction-message {
+            position: absolute;
+            bottom: 8rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        .instruction-content {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(10px);
+            font-size: 0.875rem;
+        }
+
+        /* Discovery Counter */
+        .discovery-counter {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 30;
+        }
+
+        .counter-container {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .counter-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .counter-sparkle {
+            font-size: 1rem;
+            color: #fbbf24;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .counter-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .counter-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0.25rem 0;
+        }
+
+        .counter-subtitle {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            text-align: center;
+        }
+
+        /* Game Controls */
+        .game-controls {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+        }
+
+        .controls-container {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .current-emotion {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(10px);
+            font-size: 0.875rem;
+        }
+
+        .reset-game-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(10px);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reset-game-btn:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+            transform: translateY(-2px);
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes cloudFloat {
+            0% {
+                transform: translateX(-20px);
+                opacity: 0.3;
+            }
+            50% {
+                opacity: 0.6;
+            }
+            100% {
+                transform: translateX(20px);
+                opacity: 0.3;
+            }
+        }
+
+        @keyframes messageAppear {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.8);
+            }
+            50% {
+                opacity: 0.8;
+                transform: translateY(-10px) scale(1.05);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0px) scale(1);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px) translateX(0px);
+            }
+            25% {
+                transform: translateY(-10px) translateX(5px);
+            }
+            50% {
+                transform: translateY(-5px) translateX(-5px);
+            }
+            75% {
+                transform: translateY(-15px) translateX(3px);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                opacity: 0.5;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes ping {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes sway {
+            0%, 100% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(-1deg);
+            }
+            50% {
+                transform: rotate(0deg);
+            }
+            75% {
+                transform: rotate(1deg);
+            }
+        }
+
+        @keyframes grassPush {
+            0% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(-8px) rotate(-15deg);
+            }
+            100% {
+                transform: translateX(0) rotate(0deg);
+            }
+        }
+
+        @keyframes grassGlow {
+            0%, 100% {
+                filter: brightness(1);
+            }
+            50% {
+                filter: brightness(1.3);
+            }
+        }
+
+        @keyframes grassShake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-2px);
+            }
+            75% {
+                transform: translateX(2px);
+            }
+        }
+
+        @keyframes grassSplit {
+            0% {
+                transform: scale(1) rotate(0deg);
+            }
+            25% {
+                transform: scale(1.05) rotate(2deg);
+            }
+            50% {
+                transform: scale(1.1) rotate(-1deg);
+            }
+            75% {
+                transform: scale(1.05) rotate(1deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tux-container">
+        <!-- Floating Menu -->
+        <div class="tux-floating-menu">
+            <button class="tux-menu-toggle" onclick="toggleMenu()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" x2="20" y1="12" y2="12"></line>
+                    <line x1="4" x2="20" y1="6" y2="6"></line>
+                    <line x1="4" x2="20" y1="18" y2="18"></line>
+                </svg>
+            </button>
+            
+            <!-- Menu Dropdown -->
+            <div class="tux-menu-dropdown" id="menuDropdown">
+                <button class="tux-menu-item" onclick="showGallery()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                        <circle cx="9" cy="9" r="2"></circle>
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                    </svg>
+                    갤러리
+                </button>
+                <button class="tux-menu-item" id="menuLoginBtn" onclick="showLogin()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" x2="3" y1="12" y2="12"></line>
+                    </svg>
+                    로그인
+                </button>
+                <button class="tux-menu-item" id="menuSignupBtn" onclick="showSignup()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <line x1="19" x2="19" y1="8" y2="14"></line>
+                        <line x1="22" x2="16" y1="11" y2="11"></line>
+                    </svg>
+                    회원가입
+                </button>
+
+                <button class="tux-menu-item" onclick="openEmotionGamePopup()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M2 12h20"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    감정 게임
+                </button>
+        </div>
+        </div>
+
+        <!-- Hero Section -->
+        <section class="tux-hero">
+            <!-- Video Background -->
+            <video class="hero-video-bg" autoplay muted loop playsinline>
+                <source src="intro01.mp4" type="video/mp4">
+            </video>
+            <div class="hero-video-overlay"></div>
+            
+            <div class="tux-hero-content">
+                <h1 class="tux-hero-title">MeArt</h1>
+                <h2 class="tux-hero-subtitle">AI 감정 아트 생성기</h2>
+                <p class="tux-hero-description">
+                    당신의 감정을 읽고 완벽한 명화와 합성합니다.<br>
+                    AI가 만드는 특별한 예술 작품을 경험해보세요.
+                </p>
+                <div class="tux-scroll-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14"></path>
+                        <path d="m19 12-7 7-7-7"></path>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <div class="tux-main-content">
+            <section class="tux-upload-section">
+                <h3 class="tux-section-title">Create</h3>
+                
+                <!-- Upload Area -->
+                <div class="tux-upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div class="tux-upload-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tux-upload-icon">
+                            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                            <circle cx="12" cy="13" r="3"></circle>
+                        </svg>
+                        <div class="tux-upload-text">
+                            클릭하거나 드래그하여 이미지 업로드
+            </div>
+                        <div class="tux-upload-hint">
+                            JPG, PNG, WEBP 파일 지원 (최대 50MB)
+                </div>
+                </div>
+            </div>
+
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+
+                <!-- Progress Bar -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+            </div>
+                    <div class="progress-text" id="progressText">처리 중...</div>
+            </div>
+
+                <!-- Controls -->
+                <section class="tux-controls-section">
+                    <div class="tux-controls-grid">
+                        <button class="tux-btn tux-btn-primary" id="generateBtn" disabled onclick="generateArt()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                <path d="m14 7 3 3"></path>
+                                <path d="M5 6v4"></path>
+                                <path d="M19 14v4"></path>
+                                <path d="M10 2v2"></path>
+                                <path d="M7 8H3"></path>
+                                <path d="M21 16h-4"></path>
+                                <path d="M11 3H9"></path>
+                            </svg>
+                            Generate Art
+                        </button>
+                        
+
+            </div>
+                </section>
+            </section>
+
+            <!-- Preview Section -->
+            <section class="preview-section" id="previewSection">
+                <h3 class="tux-section-title">Results</h3>
+                <div class="preview-grid" id="previewGrid">
+                    <!-- Results will be inserted here -->
+            </div>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="tux-bottom-menu">
+            <div class="tux-bottom-content">
+                <div class="tux-bottom-grid">
+                    <div class="tux-bottom-brand">
+                        <h3>MeArt</h3>
+                        <p>
+                            AI 감정 아트 생성기로 당신의 상상을 현실로 만들어보세요.<br>
+                            창의적인 디지털 아트의 새로운 경험을 시작하세요.
+                        </p>
+                        <div class="copyright">© 2025 4Dvision. All rights reserved.</div>
+            </div>
+                    
+                    <div class="tux-bottom-section">
+                        <h4>Services</h4>
+                        <ul class="tux-bottom-links">
+                            <li><a href="#" onclick="scrollToSection('.tux-upload-section')">AI Art Generator</a></li>
+                            <li><a href="#" onclick="showGallery()">Gallery</a></li>
+                            <li><a href="#" onclick="showAbout()">About</a></li>
+                            <li><a href="#" onclick="openEmotionGamePopup()">Emotion Game</a></li>
+                        </ul>
+        </div>
+                    
+                    <div class="tux-bottom-section">
+                        <h4>Support</h4>
+                        <ul class="tux-bottom-links">
+                            <li><a href="#" onclick="openEmotionGamePopup()">Emotion Game</a></li>
+                            <li><a href="#" onclick="openContactPopup()">Contact</a></li>
+                            <li><a href="#" onclick="openPrivacyPolicy()">Privacy Policy</a></li>
+                            <li><a href="#" onclick="showTerms()">Terms of Service</a></li>
+                        </ul>
+        </div>
+    </div>
+                
+                <div class="tux-bottom-footer">
+                    <div class="tux-bottom-tagline">
+                        HOUSE OF DIVERSE THINKERS AND FIERCE MAKERS
+        </div>
+                    <div class="tux-social-links">
+                        <a href="#" aria-label="Twitter">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
+                            </svg>
+                        </a>
+                        <a href="#" aria-label="Instagram">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path>
+                            </svg>
+                        </a>
+                        <a href="#" aria-label="LinkedIn">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"></path>
+                            </svg>
+                        </a>
+    </div>
+          </div>
+        </div>
+        </footer>
+      </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Global variables
+        let currentFile = null;
+        let isProcessing = false;
+        let selectedBackground = null; // 선택된 배경 이미지
+        let lastProcessedResult = null; // 마지막 처리 결과
+        let lastBrushResult = null; // 마지막 브러시 효과 결과
+
+        // 감정 한국어 변환 함수
+        function getEmotionKorean(emotion) {
+            const emotionMap = {
+                'happiness': '행복',
+                'sadness': '슬픔',
+                'anger': '분노',
+                'fear': '두려움',
+                'surprise': '놀람',
+                'disgust': '혐오',
+                'neutral': '평온',
+                'contempt': '경멸'
+            };
+            return emotionMap[emotion] || emotion;
+        }
+
+        // 랜덤 감정 메시지 생성 함수
+        function getRandomEmotionMessage(emotion) {
+            const emotionMessages = {
+                happiness: [
+                    "당신의 미소가 세상을 밝게 만들어요! 😊",
+                    "행복한 순간을 아름답게 담아보세요! ✨",
+                    "기쁨이 가득한 당신의 모습이 아름답습니다! 🌟",
+                    "행복한 감정이 예술로 승화될 거예요! 🎨",
+                    "당신의 웃음소리가 들리는 것 같아요! 😄"
+                ],
+                sadness: [
+                    "슬픔도 아름다운 예술이 될 수 있어요 💙",
+                    "마음의 무게를 예술로 표현해보세요 🌧️",
+                    "슬픈 감정도 소중한 경험이에요 💔",
+                    "당신의 진심이 작품에 담길 거예요 🕊️",
+                    "슬픔을 통해 더 깊은 아름다움을 발견할 수 있어요 🌊"
+                ],
+                anger: [
+                    "강렬한 감정이 파워풀한 작품을 만들어요! 🔥",
+                    "분노를 창작의 에너지로 바꿔보세요! ⚡",
+                    "당신의 열정이 작품에 생동감을 줄 거예요! 💪",
+                    "강한 감정이 예술의 원동력이에요! 🎭",
+                    "분노를 아름다운 표현으로 승화시켜요! 🌋"
+                ],
+                surprise: [
+                    "놀라운 순간을 특별하게 담아보세요! 😲",
+                    "예상치 못한 아름다움이 탄생할 거예요! ✨",
+                    "놀라움을 창의적인 표현으로! 🎪",
+                    "당신의 반응이 독특한 작품을 만들어요! 🎯",
+                    "놀라운 감정이 특별한 예술을 만들어요! 🌈"
+                ],
+                fear: [
+                    "두려움도 예술적 영감이 될 수 있어요 👻",
+                    "긴장감이 독특한 분위기를 만들어요 🕯️",
+                    "두려움을 아름다운 표현으로 승화시켜요 🌙",
+                    "당신의 감정이 신비로운 작품을 만들어요 🔮",
+                    "두려움도 창작의 소재가 될 수 있어요 🦋"
+                ],
+                disgust: [
+                    "강한 감정이 독특한 작품을 만들어요 🤢",
+                    "당신의 반응이 특별한 표현을 만들어요 🎨",
+                    "강렬한 감정이 파워풀한 아트를 만들어요 💥",
+                    "당신의 진정성이 작품에 담길 거예요 🎭",
+                    "강한 감정도 예술적 가치가 있어요 🌟"
+                ],
+                neutral: [
+                    "평온한 마음이 아름다운 작품을 만들어요 🍃",
+                    "차분한 감정이 세련된 아트를 만들어요 🌸",
+                    "평온함이 작품에 고요한 아름다움을 줄 거예요 🕊️",
+                    "당신의 평온함이 작품에 담길 거예요 🌿",
+                    "차분한 마음이 우아한 예술을 만들어요 🌅"
+                ]
+            };
+            
+            const messages = emotionMessages[emotion] || emotionMessages.neutral;
+            return messages[Math.floor(Math.random() * messages.length)];
+        }
+
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const previewSection = document.getElementById('previewSection');
+        const previewGrid = document.getElementById('previewGrid');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎨 MeArt AI 아트 생성기 초기화됨');
+            setupEventListeners();
+        });
+
+        // Event Listeners
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Drag and drop
+            const uploadArea = document.querySelector('.tux-upload-area');
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--primary-color)';
+                uploadArea.style.background = 'var(--primary-bg)';
+            });
+            
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = 'var(--surface)';
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = 'var(--surface)';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+        }
+
+        // File handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('이미지 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {
+                alert('파일 크기는 50MB를 초과할 수 없습니다.');
+                return;
+            }
+
+            currentFile = file;
+            generateBtn.disabled = false;
+            
+            // 파일 미리보기 이미지 생성
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Update upload area with preview
+                const uploadContent = document.querySelector('.tux-upload-content');
+                uploadContent.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                        <div style="position: relative;">
+                            <img src="${e.target.result}" alt="미리보기" style="
+                                max-width: 200px; 
+                                max-height: 200px; 
+                                object-fit: cover; 
+                                border-radius: 12px;
+                                border: 3px solid var(--accent);
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                            ">
+                            <div style="
+                                position: absolute; 
+                                top: -8px; 
+                                right: -8px; 
+                                background: var(--accent); 
+                                color: white; 
+                                border-radius: 50%; 
+                                width: 24px; 
+                                height: 24px; 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                font-size: 14px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                            ">✓</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div class="tux-upload-text" style="color: var(--accent); font-weight: 600;">
+                                ${file.name}
+                            </div>
+                            <div class="tux-upload-hint" style="margin-top: 0.5rem;">
+                                크기: ${(file.size / 1024 / 1024).toFixed(2)}MB | 타입: ${file.type}
+                            </div>
+                            <div style="
+                                margin-top: 0.5rem; 
+                                padding: 0.5rem 1rem; 
+                                background: var(--accent-light); 
+                                border-radius: 20px; 
+                                font-size: 0.8rem; 
+                                color: var(--accent);
+                                font-weight: 600;
+                            ">
+                                🎨 업로드 준비 완료!
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+
+            console.log('📁 파일 선택됨:', file.name);
+        }
+
+        // Generate Art
+        async function generateArt() {
+            if (!currentFile || isProcessing) return;
+
+            isProcessing = true;
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<div class="loading"></div> Processing...';
+            
+            showProgress(10, '이미지 업로드 중...');
+
+            try {
+                console.log('🚀 API 호출 시작:', currentFile.name);
+                
+                const formData = new FormData();
+                formData.append('image', currentFile);
+                
+                // 선택된 배경이 있으면 추가
+                if (selectedBackground) {
+                    formData.append('backgroundPath', selectedBackground);
+                    console.log('🎨 선택된 배경 사용:', selectedBackground);
+                }
+                
+                showProgress(20, '서버로 전송 중...');
+                
+                const response = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('📡 응답 상태:', response.status, response.statusText);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ HTTP 오류:', response.status, errorText);
+                    throw new Error(`서버 오류: ${response.status} ${response.statusText}`);
+                }
+
+                showProgress(50, '응답 처리 중...');
+
+                const result = await response.json();
+                console.log('📊 API 응답:', result);
+                
+                // 서버 응답이 processedImageUrl을 포함하면 성공으로 간주
+                if (result.processedImageUrl || result.imageBase64) {
+                    showProgress(100, '완료!');
+                    
+                    // 응답 구조를 표준화
+                    const normalizedResult = {
+                        success: true,
+                        preview: result.imageBase64 || result.processedImageUrl,
+                        nobgPath: result.nobgPath,
+                        backgroundPath: result.background,
+                        emotionAnalysis: result.emotionAnalysis || (result.emotion ? {
+                            emotion: result.emotion,
+                            confidence: 0.9,
+                            top_emotions: []
+                        } : null),
+                        artworkRecommendations: result.artworkRecommendations || result.recommendations || [],
+                        metadata: {
+                            processingTime: result.processingTime,
+                            imageSize: result.imageSize,
+                            timestamp: new Date().toISOString()
+                        }
+                    };
+                    
+                    console.log('🎨 정규화된 결과:', normalizedResult);
+                    
+                                        // 결과 저장
+                    lastProcessedResult = normalizedResult;
+                    displayResults(normalizedResult);
+                } else {
+                    console.error('❌ 처리 실패:', result);
+                    throw new Error(result.error || result.message || '처리 실패: 결과 이미지가 없습니다');
+                }
+
+            } catch (error) {
+                console.error('❌ 전체 처리 오류:', error);
+                console.error('❌ 오류 스택:', error.stack);
+                
+                let errorMessage = '처리 중 오류가 발생했습니다.';
+                if (error.message) {
+                    errorMessage += '\n상세: ' + error.message;
+                }
+                
+                alert(errorMessage);
+                hideProgress();
+            } finally {
+                isProcessing = false;
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                        <path d="m14 7 3 3"></path>
+                        <path d="M5 6v4"></path>
+                        <path d="M19 14v4"></path>
+                        <path d="M10 2v2"></path>
+                        <path d="M7 8H3"></path>
+                        <path d="M21 16h-4"></path>
+                        <path d="M11 3H9"></path>
+                    </svg>
+                    Generate Art
+                `;
+            }
+        }
+
+        // Progress handling
+        function showProgress(percent, text) {
+            progressContainer.classList.add('show');
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+
+        function hideProgress() {
+            setTimeout(() => {
+                progressContainer.classList.remove('show');
+            }, 1000);
+        }
+
+        // Display results
+        function displayResults(result) {
+            console.log('🎨 결과 표시 시작:', result);
+            previewSection.classList.add('show');
+            
+            let html = '';
+            
+            // Preview image
+            if (result.preview) {
+                console.log('🖼️ 미리보기 이미지 있음');
+                html += `
+                    <div class="preview-item">
+                        <h4>🎨 AI 아트 결과</h4>
+                        <img src="${result.preview}" alt="AI 아트 결과" class="preview-image" onclick="downloadImage('${result.preview}', 'meart_result.png')">
+                        <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <button class="tux-btn tux-btn-secondary" onclick="downloadImage('${result.preview}', 'meart_result_${Date.now()}.png')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" x2="12" y1="15" y2="3"></line>
+                                </svg>
+                                다운로드
+                            </button>
+                            <button class="tux-btn tux-btn-primary" onclick="applyBrushEffect('${result.nobgPath || ''}', '${result.backgroundPath || ''}', '${(result.emotionAnalysis && result.emotionAnalysis.emotion) || 'neutral'}')" ${!result.nobgPath ? 'disabled' : ''}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                                </svg>
+                                브러시 효과
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Emotion analysis
+            if (result.emotionAnalysis) {
+                console.log('😊 감정 분석 결과 있음:', result.emotionAnalysis);
+                const emotionCatImages = {
+                    'happiness': 'happy.png',
+                    'sadness': 'sad.png',
+                    'anger': 'angry.png',
+                    'fear': 'fear.png',
+                    'surprise': 'surprise.png',
+                    'disgust': 'disgust.png',
+                    'neutral': 'neutral.png'
+                };
+
+                html += `
+                    <div class="preview-item">
+                        <h4>🧠 감정 분석 결과</h4>
+                        <div class="emotion-results">
+                            <div class="emotion-item" style="background: var(--primary-bg); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                                <div style="text-align: center;">
+                                    <div style="margin-bottom: 0.5rem; margin-top: 5px;">
+                                        <img src="${emotionCatImages[result.emotionAnalysis.emotion] || 'neutral.png'}" 
+                                             alt="${result.emotionAnalysis.emotion}" 
+                                             style="width: 80px; height: 80px; object-fit: cover; border: 3px solid var(--accent); display: block; margin: 0 auto;">
+                                    </div>
+                                    <div style="font-size: 1.2rem; font-weight: 600;">
+                                        ${getEmotionKorean(result.emotionAnalysis.emotion)}
+                                    </div>
+                                    <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem;">
+                                        신뢰도: ${(result.emotionAnalysis.confidence * 100).toFixed(1)}%
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: var(--accent); font-style: italic; text-align: center; padding: 0.5rem; background: var(--primary-bg); border-radius: 6px; margin-top: 0.5rem;">
+                                        ${getRandomEmotionMessage(result.emotionAnalysis.emotion)}
+                                    </div>
+                                </div>
+                            </div>
+                `;
+                
+                if (result.emotionAnalysis.top_emotions && result.emotionAnalysis.top_emotions.length > 0) {
+                    html += `<div style="margin-top: 1rem;"><h5>세부 감정 분석</h5>`;
+                    result.emotionAnalysis.top_emotions.forEach(emotion => {
+                        html += `
+                            <div class="emotion-item" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <img src="${emotionCatImages[emotion.emotion] || 'neutral.png'}" 
+                                     alt="${emotion.emotion}" 
+                                     style="width: 30px; height: 30px; object-fit: cover;">
+                                <span style="min-width: 80px;">${getEmotionKorean(emotion.emotion)}</span>
+                                <div class="emotion-bar" style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+                                    <div class="emotion-fill" style="width: ${emotion.percentage}%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+                                </div>
+                                <span style="min-width: 40px; text-align: right; font-size: 0.8rem;">${emotion.percentage.toFixed(1)}%</span>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+                
+                // Emotion game will be started manually via button instead of automatically
+            }
+
+            // Artwork recommendations with thumbnails
+            if (result.artworkRecommendations && result.artworkRecommendations.length > 0) {
+                console.log('🎨 명화 추천 있음:', result.artworkRecommendations.length, '개');
+                
+                // 최대 6개까지 표시
+                const artworksToShow = result.artworkRecommendations.slice(0, 6);
+                
+                html += `
+                    <div class="preview-item">
+                        <h4>🖼️ 추천 명화 컬렉션 (${artworksToShow.length}개)</h4>
+                        <div style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted); text-align: center;">
+                            ${(result.emotionAnalysis && result.emotionAnalysis.emotion) || 'neutral'} 감정에 맞는 배경을 선별했습니다
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 1rem;">
+                            ${artworksToShow.map(artwork => `
+                                <div class="artwork-card" style="
+                                    background: var(--surface); 
+                                    border-radius: 8px; 
+                                    overflow: hidden; 
+                                    transition: transform 0.2s ease;
+                                    cursor: pointer;
+                                    border: 2px solid transparent;
+                                " onmouseover="this.style.transform='scale(1.05)'; this.style.borderColor='var(--accent)'" 
+                                   onmouseout="this.style.transform='scale(1)'; this.style.borderColor='transparent'"
+                                   onclick="selectArtwork('${artwork.path}', '${artwork.title}')">
+                                    <img src="${artwork.thumbnail || artwork.path}" 
+                                         alt="${artwork.title}" 
+                                         style="width: 100%; height: 80px; object-fit: cover; display: block;"
+                                         onerror="this.src='${artwork.path}'">
+                                    <div style="padding: 0.5rem; text-align: center;">
+                                        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.2rem; 
+                                                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            ${artwork.title || 'Untitled'}
+                                        </div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                            ${artwork.artist || 'Unknown Artist'}
+                                        </div>
+                                        ${artwork.score ? `<div style="font-size: 0.7rem; color: var(--accent); margin-top: 0.2rem;">
+                                            매칭도: ${Math.round(artwork.score * 100)}%
+                                        </div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Processing info
+            if (result.metadata) {
+                html += `
+                    <div class="preview-item">
+                        <h4>ℹ️ 처리 정보</h4>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            ${result.metadata.processingTime ? `처리 시간: ${result.metadata.processingTime}초<br>` : ''}
+                            ${result.metadata.imageSize ? `이미지 크기: ${result.metadata.imageSize}<br>` : ''}
+                            처리 완료 시간: ${new Date().toLocaleString()}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (html === '') {
+                html = `
+                    <div class="preview-item">
+                        <h4>⚠️ 결과 없음</h4>
+                        <p>처리 결과를 표시할 수 없습니다. 다시 시도해주세요.</p>
+                    </div>
+                `;
+            }
+
+            previewGrid.innerHTML = html;
+            
+            // Scroll to results with smooth animation
+            setTimeout(() => {
+                previewSection.scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 300);
+            
+            console.log('✅ 결과 표시 완료');
+        }
+
+        // Utility functions
+
+        // Select artwork for background
+        function selectArtwork(artworkPath, artworkTitle) {
+            console.log('🎨 명화 선택:', artworkTitle, artworkPath);
+            
+            // 선택된 명화 강조 표시
+            const artworkCards = document.querySelectorAll('.artwork-card');
+            artworkCards.forEach(card => {
+                card.style.borderColor = 'transparent';
+                card.style.transform = 'scale(1)';
+            });
+            
+            // 클릭된 카드 강조
+            event.currentTarget.style.borderColor = 'var(--accent)';
+            event.currentTarget.style.transform = 'scale(1.05)';
+            
+            // 현재 파일이 있고 처리된 결과가 있다면 새로운 배경으로 재처리
+            if (currentFile && lastProcessedResult) {
+                // 선택 확인 다이얼로그
+                const confirmReprocess = confirm(`선택한 명화 "${artworkTitle}"로 배경을 변경하시겠습니까?\n\n현재 이미지가 새로운 배경과 합성됩니다.`);
+                
+                if (confirmReprocess) {
+                    reprocessWithNewBackground(artworkPath, artworkTitle);
+                    return;
+                }
+            }
+            
+            // 선택 피드백
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="
+                    position: fixed; 
+                    top: 20px; 
+                    right: 20px; 
+                    background: var(--accent); 
+                    color: white; 
+                    padding: 1rem; 
+                    border-radius: 8px; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    animation: slideInRight 0.3s ease;
+                ">
+                    <div style="font-weight: 600;">🎨 명화 선택됨</div>
+                    <div style="font-size: 0.9rem; margin-top: 0.2rem;">${artworkTitle}</div>
+                    <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.9;">
+                        ${currentFile ? '이미지 업로드 후 이 배경으로 처리됩니다' : '이미지를 업로드하면 이 배경으로 처리됩니다'}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // 선택된 배경 저장
+            selectedBackground = artworkPath;
+            
+            // 5초 후 알림 제거
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // 새로운 배경으로 재처리
+        async function reprocessWithNewBackground(backgroundPath, backgroundTitle) {
+            if (!currentFile || !lastProcessedResult) {
+                alert('재처리할 이미지가 없습니다.');
+                return;
+            }
+            
+            console.log('🔄 새로운 배경으로 재처리 시작:', backgroundPath);
+            
+            showProgress(0, `새로운 배경 "${backgroundTitle}"로 재처리 중...`);
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', currentFile);
+                formData.append('backgroundPath', backgroundPath);
+                
+                showProgress(30, '서버로 전송 중...');
+                
+                const response = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`서버 오류: ${response.status} ${response.statusText}`);
+                }
+                
+                showProgress(70, '새로운 배경 합성 중...');
+                
+                const result = await response.json();
+                console.log('🎨 재처리 결과:', result);
+                
+                if (result.processedImageUrl || result.imageBase64) {
+                    showProgress(100, '재처리 완료!');
+                    
+                    // 기존 결과 업데이트
+                    const normalizedResult = {
+                        success: true,
+                        preview: result.imageBase64 || result.processedImageUrl,
+                        nobgPath: result.nobgPath,
+                        backgroundPath: result.background,
+                        emotionAnalysis: result.emotionAnalysis || (result.emotion ? {
+                            emotion: result.emotion,
+                            confidence: result.confidence || 0.9,
+                            top_emotions: result.top_emotions || []
+                        } : null),
+                        artworkRecommendations: result.artworkRecommendations || result.recommendations || [],
+                        metadata: {
+                            processingTime: result.processingTime,
+                            imageSize: result.imageSize,
+                            timestamp: new Date().toISOString(),
+                            reprocessed: true,
+                            newBackground: backgroundTitle
+                        }
+                    };
+                    
+                    // 결과 업데이트
+                    lastProcessedResult = normalizedResult;
+                    displayResults(normalizedResult);
+                    
+                    // 브러시 효과 결과가 있다면 새로운 배경으로 재처리
+                    if (lastBrushResult) {
+                        const confirmBrushReprocess = confirm(`새로운 배경으로 브러시 효과도 다시 적용하시겠습니까?`);
+                        if (confirmBrushReprocess) {
+                            applyBrushEffectWithNewBackground(backgroundPath, backgroundTitle);
+                        }
+                    }
+                    
+                    // 성공 알림
+                    alert(`✅ 새로운 배경 "${backgroundTitle}"로 재처리가 완료되었습니다!`);
+                    
+                } else {
+                    throw new Error('재처리 실패: 결과 이미지가 없습니다');
+                }
+                
+            } catch (error) {
+                console.error('❌ 재처리 오류:', error);
+                alert(`재처리 중 오류가 발생했습니다: ${error.message}`);
+            } finally {
+                hideProgress();
+            }
+                }
+        
+        // 새로운 배경으로 브러시 효과 재처리
+        async function applyBrushEffectWithNewBackground(backgroundPath, backgroundTitle) {
+            if (!lastProcessedResult || !lastProcessedResult.nobgPath) {
+                alert('브러시 효과를 적용할 수 없습니다. 먼저 이미지 처리를 완료해주세요.');
+                return;
+            }
+            
+            console.log('🎨 새로운 배경으로 브러시 효과 재처리 시작:', backgroundPath);
+            
+            showProgress(0, `새로운 배경 "${backgroundTitle}"로 브러시 효과 적용 중...`);
+            
+            try {
+                const response = await fetch('/api/apply-brush-effect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        nobgPath: lastProcessedResult.nobgPath,
+                        backgroundPath: backgroundPath,
+                        emotion: (lastProcessedResult.emotionAnalysis && lastProcessedResult.emotionAnalysis.emotion) || 'neutral'
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`브러시 효과 적용 실패: ${response.status}`);
+                }
+                
+                showProgress(80, '브러시 효과 처리 중...');
+                
+                const result = await response.json();
+                console.log('🎨 브러시 효과 재처리 결과:', result);
+                
+                if (result.processedImageUrl) {
+                    showProgress(100, '브러시 효과 재처리 완료!');
+                    
+                    // 브러시 효과 결과 업데이트
+                    lastBrushResult = {
+                        processedImageUrl: result.processedImageUrl,
+                        emotion: result.emotion || 'neutral',
+                        backgroundPath: backgroundPath,
+                        backgroundTitle: backgroundTitle
+                    };
+                    
+                    // 기존 브러시 효과 결과를 새로운 것으로 교체
+                    const brushResultHtml = `
+                        <div class="preview-item">
+                            <h4>✨ 브러시 효과 적용 완료 (새로운 배경)</h4>
+                            <img src="${result.processedImageUrl}" alt="브러시 효과 결과" class="preview-image" onclick="downloadImage('${result.processedImageUrl}', 'meart_brush_result.png')">
+                            <div style="margin-top: 1rem;">
+                                <button class="tux-btn tux-btn-primary" onclick="downloadImage('${result.processedImageUrl}', 'meart_brush_${Date.now()}.png')" style="width: 100%;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" x2="12" y1="15" y2="3"></line>
+                                    </svg>
+                                    브러시 아트 다운로드
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-muted); text-align: center;">
+                                Neural Style Transfer 적용 완료 (${result.emotion || 'neutral'} 감정, ${backgroundTitle})
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 기존 브러시 효과 결과 찾아서 교체
+                    const previewGrid = document.getElementById('previewGrid');
+                    const brushItems = previewGrid.querySelectorAll('.preview-item');
+                    let brushItemFound = false;
+                    
+                    for (let item of brushItems) {
+                        if (item.querySelector('h4') && item.querySelector('h4').textContent.includes('브러시 효과')) {
+                            item.outerHTML = brushResultHtml;
+                            brushItemFound = true;
+                            break;
+                        }
+                    }
+                    
+                    // 브러시 효과 결과가 없으면 새로 추가
+                    if (!brushItemFound) {
+                        previewGrid.innerHTML += brushResultHtml;
+                    }
+                    
+                    // 성공 알림
+                    alert(`✅ 새로운 배경 "${backgroundTitle}"로 브러시 효과 재처리가 완료되었습니다!`);
+                    
+                } else {
+                    throw new Error(result.error || '브러시 효과 재처리 실패: 결과 이미지가 없습니다');
+                }
+                
+            } catch (error) {
+                console.error('❌ 브러시 효과 재처리 오류:', error);
+                alert(`브러시 효과 재처리 중 오류가 발생했습니다: ${error.message}`);
+            } finally {
+                hideProgress();
+            }
+        }
+        
+        function downloadImage(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Menu functionality - Global variable
+        window.menuOpen = false;
+
+        function toggleMenu() {
+            console.log('🔍 toggleMenu 함수 호출됨');
+            const dropdown = document.getElementById('menuDropdown');
+            if (dropdown) {
+                window.menuOpen = !window.menuOpen;
+                
+                if (window.menuOpen) {
+                    dropdown.classList.add('show');
+                    console.log('✅ 메뉴 열림');
+                } else {
+                    dropdown.classList.remove('show');
+                    console.log('❌ 메뉴 닫힘');
+                }
+                console.log('메뉴 토글:', window.menuOpen);
+            } else {
+                console.error('❌ 메뉴 드롭다운을 찾을 수 없습니다.');
+            }
+        }
+
+        function scrollToSection(selector) {
+            const element = document.querySelector(selector);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function scrollToEmotionGame() {
+            console.log('🎮 감정 게임으로 스크롤');
+            
+            try {
+                // 메뉴 닫기
+                const dropdown = document.getElementById('menuDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }
+                
+                const emotionGameSection = document.getElementById('emotionGameSection');
+                if (emotionGameSection) {
+                    // 감정 게임 섹션을 보이게 하고 스크롤
+                    emotionGameSection.style.display = 'block';
+                    emotionGameSection.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // 감정 게임 초기화
+                    setTimeout(() => {
+                        try {
+                            if (typeof initEmotionGame === 'function') {
+                                initEmotionGame();
+                                console.log('감정 게임이 초기화되었습니다.');
+                            } else if (typeof startEmotionGame === 'function') {
+                                startEmotionGame();
+                                console.log('감정 게임이 시작되었습니다.');
+                            } else {
+                                console.error('initEmotionGame 또는 startEmotionGame 함수를 찾을 수 없습니다.');
+                                // 기본 게임 시작 시도
+                                const gameInterface = document.getElementById('gameInterface');
+                                if (gameInterface) {
+                                    gameInterface.style.display = 'block';
+                                    console.log('기본 게임 인터페이스가 표시되었습니다.');
+                                } else {
+                                    alert('감정 게임을 시작할 수 없습니다. 페이지를 새로고침해주세요.');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('감정 게임 초기화 오류:', error);
+                            alert('감정 게임을 시작할 수 없습니다. 페이지를 새로고침해주세요.');
+                        }
+                    }, 500);
+                } else {
+                    console.error('감정 게임 섹션을 찾을 수 없습니다.');
+                    alert('감정 게임을 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                }
+            } catch (error) {
+                console.error('scrollToEmotionGame 오류:', error);
+                alert('감정 게임으로 이동할 수 없습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+
+        // 9:16 팝업으로 감정 게임 열기
+        function openEmotionGamePopup() {
+            try {
+                const dropdown = document.getElementById('menuDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }
+
+                // 최근 브러시 결과 이미지/감정 전달
+                if (window.lastBrushResult && window.lastBrushResult.processedImageUrl) {
+                    localStorage.setItem('brushResultImageUrl', window.lastBrushResult.processedImageUrl);
+                    localStorage.setItem('processedImageUrl', window.lastBrushResult.processedImageUrl);
+                    if (window.lastBrushResult.emotion) {
+                        localStorage.setItem('emotion', window.lastBrushResult.emotion);
+                    }
+                }
+
+                const screenW = window.screen.availWidth || window.innerWidth;
+                const screenH = window.screen.availHeight || window.innerHeight;
+
+                // 9:16 비율(세로형), 높이를 기준으로 안전하게 산출
+                const targetHeight = Math.min(900, Math.floor(screenH * 0.9));
+                const targetWidth = Math.floor(targetHeight * 9 / 16);
+
+                const left = Math.max(0, Math.floor((screenW - targetWidth) / 2));
+                const top = Math.max(0, Math.floor((screenH - targetHeight) / 2));
+
+                const features = `width=${targetWidth},height=${targetHeight},left=${left},top=${top},resizable=yes,scrollbars=yes,noopener=yes`;
+                const win = window.open('Emotion-Garden.html?auto=1', 'EmotionGamePopup', features);
+                if (!win) alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+            } catch (e) {
+                console.error('openEmotionGamePopup 오류:', e);
+                alert('감정 게임을 열 수 없습니다. 새로고침 후 다시 시도해주세요.');
+            }
+        }
+
+        function showAbout() {
+            alert('MeArt - AI 감정 아트 생성기\n\n당신의 감정을 분석하여 완벽한 명화와 합성하는 혁신적인 AI 서비스입니다.');
+        }
+
+        // Emotion Game Variables
+        let gameState = {
+            currentPainting: null,
+            selectedEmotion: null,
+            isGameActive: false,
+            isLoading: false,
+            totalDiscoveries: 0,
+            currentMessages: 0,
+            lastDiscoveryTime: 0,
+            messageIdCounter: 0,
+            grassElements: [],
+            lastMouseMoveTime: 0,
+            mouseMoveThrottle: 8 // ~120fps for more responsive grass
+        };
+
+        // Paintings database
+        const gamePaintings = [
+            {
+                id: 1,
+                title: "별이 빛나는 밤",
+                artist: "반 고흐",
+                image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
+            },
+            {
+                id: 2,
+                title: "모나리자",
+                artist: "레오나르도 다 빈치",
+                image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/687px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg"
+            },
+            {
+                id: 3,
+                title: "진주 귀걸이를 한 소녀",
+                artist: "요하네스 베르메르",
+                image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/1665_Girl_with_a_Pearl_Earring.jpg/800px-1665_Girl_with_a_Pearl_Earring.jpg"
+            },
+            {
+                id: 4,
+                title: "절규",
+                artist: "에드바르 뭉크",
+                image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg/687px-Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg"
+            },
+            {
+                id: 5,
+                title: "해바라기",
+                artist: "반 고흐",
+                image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Vincent_Willem_van_Gogh_127.jpg/800px-Vincent_Willem_van_Gogh_127.jpg"
+            }
+        ];
+
+        // Emotions database
+        let gameEmotions = [
+            { id: 'angry', name: '분노', image: 'angry.png' },
+            { id: 'contempt', name: '경멸', image: 'contempt.png' },
+            { id: 'disgust', name: '혐오', image: 'disgust.png' },
+            { id: 'fear', name: '두려움', image: 'fear.png' },
+            { id: 'happy', name: '기쁨', image: 'happy.png' },
+            { id: 'neutral', name: '평온', image: 'neutral.png' },
+            { id: 'sad', name: '슬픔', image: 'sad.png' },
+            { id: 'surprise', name: '놀람', image: 'surprise.png' }
+        ];
+
+        // Initialize Emotion Game
+        function initEmotionGame(analyzedEmotion = null, selectedBackground = null) {
+            console.log('🎮 감정 게임 초기화 시작', { analyzedEmotion, selectedBackground });
+            
+            // If we have analyzed emotion and background, start game directly
+            if (analyzedEmotion && selectedBackground) {
+                startEmotionGameWithAnalysis(analyzedEmotion, selectedBackground);
+                return;
+            }
+            
+            // Set random painting as background
+            const randomPainting = gamePaintings[Math.floor(Math.random() * gamePaintings.length)];
+            gameState.currentPainting = randomPainting;
+            
+            // Set background image
+            const gameBackground = document.getElementById('gameBackground');
+            if (gameBackground) {
+                gameBackground.style.backgroundImage = `url(${randomPainting.image})`;
+            }
+            
+            // Skip emotion selection modal and start game directly
+            startEmotionGame();
+            
+            console.log('🎮 감정 게임 초기화 완료:', randomPainting.title);
+        }
+
+        // Start emotion game with analyzed emotion and background
+        function startEmotionGameWithAnalysis(analyzedEmotion, selectedBackground) {
+            console.log('🎮 분석 결과로 감정 게임 시작:', { analyzedEmotion, selectedBackground });
+            
+            // Find the emotion object that matches the analyzed emotion
+            const emotionMapping = {
+                'happiness': 'happy',
+                'sadness': 'sad',
+                'anger': 'angry',
+                'fear': 'fear',
+                'surprise': 'surprise',
+                'disgust': 'disgust',
+                'neutral': 'neutral'
+            };
+            
+            const emotionId = emotionMapping[analyzedEmotion] || 'neutral';
+            const selectedEmotion = gameEmotions.find(e => e.id === emotionId) || gameEmotions[0];
+            
+            // Set game state
+            gameState.selectedEmotion = selectedEmotion;
+            gameState.currentPainting = { image: selectedBackground, title: 'Selected Background' };
+            
+            // Set background image
+            const gameBackground = document.getElementById('gameBackground');
+            if (gameBackground) {
+                gameBackground.style.backgroundImage = `url(${selectedBackground})`;
+            }
+            
+            // Hide emotion selection modal
+            const emotionModal = document.getElementById('emotionSelectionModal');
+            if (emotionModal) {
+                emotionModal.classList.remove('show');
+            }
+            
+            // Start game directly
+            startEmotionGame();
+            
+            console.log('🎮 분석 기반 감정 게임 시작 완료');
+        }
+
+        // Start emotion game (common function)
+        function startEmotionGame() {
+            // Set game as active
+            gameState.isGameActive = true;
+            gameState.isLoading = false;
+            
+            // Show game interface
+            const gameInterface = document.getElementById('gameInterface');
+            if (gameInterface) {
+                gameInterface.style.display = 'block';
+            }
+            
+            // Show discovery counter
+            const discoveryCounter = document.getElementById('discoveryCounter');
+            if (discoveryCounter) {
+                discoveryCounter.style.display = 'block';
+            }
+            
+            // Show game controls
+            const gameControls = document.getElementById('gameControls');
+            if (gameControls) {
+                gameControls.style.display = 'block';
+            }
+            
+            // Update current emotion display
+            const currentEmotionDisplay = document.getElementById('currentEmotionDisplay');
+            if (currentEmotionDisplay && gameState.selectedEmotion) {
+                currentEmotionDisplay.textContent = gameState.selectedEmotion.name;
+            }
+            
+            // Generate grass field
+            generateGrassField();
+            
+            // Add event listeners
+            addGameEventListeners();
+            
+            // Scroll to emotion game section
+            const emotionGameSection = document.getElementById('emotionGameSection');
+            if (emotionGameSection) {
+                emotionGameSection.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            console.log('🎮 게임 상태:', { 
+                isGameActive: gameState.isGameActive, 
+                isLoading: gameState.isLoading,
+                grassElementsCount: gameState.grassElements.length,
+                selectedEmotion: gameState.selectedEmotion?.name 
+            });
+            
+            console.log('🎮 감정 게임 시작 완료');
+        }
+
+        // Populate emotion selection grid
+        function populateEmotionGrid() {
+            const emotionGrid = document.getElementById('emotionGrid');
+            if (!emotionGrid) return;
+            
+            emotionGrid.innerHTML = '';
+            
+            gameEmotions.forEach(emotion => {
+                const emotionItem = document.createElement('div');
+                emotionItem.className = 'emotion-item';
+                emotionItem.onclick = () => selectGameEmotion(emotion);
+                
+                emotionItem.innerHTML = `
+                    <img src="${emotion.image}" alt="${emotion.name}" class="emotion-image" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="emotion-fallback" style="display: none; font-size: 2rem; margin-bottom: 0.5rem;">
+                        ${getEmotionEmoji(emotion.id)}
+                    </div>
+                    <div class="emotion-name">${emotion.name}</div>
+                `;
+                
+                emotionGrid.appendChild(emotionItem);
+            });
+        }
+
+        // Get emotion emoji fallback
+        function getEmotionEmoji(emotionId) {
+            const emojiMap = {
+                'angry': '😠',
+                'contempt': '😤',
+                'disgust': '🤢',
+                'fear': '😨',
+                'happy': '😊',
+                'neutral': '😐',
+                'sad': '😢',
+                'surprise': '😲'
+            };
+            return emojiMap[emotionId] || '😐';
+        }
+
+        // Select emotion for game
+        function selectGameEmotion(emotion) {
+            // Remove previous selection
+            document.querySelectorAll('.emotion-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selection to clicked item
+            event.target.closest('.emotion-item').classList.add('selected');
+            
+            // Update game state
+            gameState.selectedEmotion = emotion;
+            
+            // Enable start button
+            const startBtn = document.getElementById('emotionStartBtn');
+            if (startBtn) {
+                startBtn.disabled = false;
+            }
+            
+            console.log('🎮 선택된 감정:', emotion.name);
+        }
+
+        // Generate grass field
+        function generateGrassField() {
+            const grassField = document.getElementById('grassField');
+            if (!grassField) return;
+            
+            grassField.innerHTML = '';
+            gameState.grassElements = [];
+            
+            // Generate 500 grass elements (increased from 300 for denser grass)
+            for (let i = 0; i < 500; i++) {
+                const grass = createGrassElement(i);
+                grassField.appendChild(grass.element);
+                gameState.grassElements.push(grass);
+            }
+        }
+
+        // Create individual grass element
+        function createGrassElement(index) {
+            const yPos = Math.random() * 25 + 75; // Bottom 25% area (increased from 20%)
+            const xPos = Math.random() * 100;
+            
+            const distanceFromBottom = (100 - yPos) / 25;
+            const perspectiveScale = 0.5 + (1 - distanceFromBottom) * 0.8; // Adjusted for better perspective
+            
+            const lengthRandom = Math.random();
+            let baseHeight;
+            if (lengthRandom < 0.25) { // More short grass
+                baseHeight = 0.3 + Math.random() * 0.4;
+            } else if (lengthRandom < 0.7) { // More medium grass
+                baseHeight = 0.6 + Math.random() * 0.6;
+            } else { // Tall grass
+                baseHeight = 1.0 + Math.random() * 0.8;
+            }
+            
+            const grassData = {
+                x: xPos,
+                y: yPos,
+                size: (Math.random() * 0.3 + 0.5) * perspectiveScale, // Slightly smaller for denser look
+                height: baseHeight * perspectiveScale,
+                rotation: (Math.random() - 0.5) * 15, // Slightly more rotation
+                thickness: (Math.random() * 0.2 + 0.7) * perspectiveScale,
+                distanceFromBottom: distanceFromBottom,
+                windPhase: Math.random() * Math.PI * 2,
+                swayIntensity: Math.random() * 0.9 + 0.3,
+                animationDelay: Math.random() * 10,
+                baseRotation: (Math.random() - 0.5) * 15,
+                baseX: xPos,
+                baseY: yPos,
+                lastMouseDistance: Infinity,
+                isBeingAffected: false,
+                originalTransform: '', // Store original transform for smooth reset
+                splitDirection: Math.random() > 0.5 ? 1 : -1 // Random split direction
+            };
+            
+            const grassElement = document.createElement('div');
+            grassElement.className = 'grass-element';
+            grassElement.style.cssText = `
+                left: ${grassData.x}%;
+                top: ${grassData.y}%;
+                z-index: ${Math.floor(grassData.y)};
+                transform: translateX(-50%) translateY(-${75 + grassData.distanceFromBottom * 25}%);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            `;
+            
+            const grassStem = document.createElement('div');
+            grassStem.className = 'grass-stem';
+            grassStem.style.cssText = `
+                width: ${3.5 * grassData.thickness}px;
+                height: ${35 + grassData.height * 40}px;
+                transform: rotate(${grassData.rotation}deg) scale(${grassData.size}) scaleY(${grassData.height});
+                transform-origin: bottom center;
+                animation: sway ${2 + grassData.swayIntensity}s ease-in-out infinite;
+                animation-delay: ${grassData.animationDelay}s;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            `;
+            
+            // Store original transform for smooth reset
+            grassData.originalTransform = grassStem.style.transform;
+            
+            // Add grass stripe for larger grass
+            if (lengthRandom >= 0.25) {
+                const grassStripe = document.createElement('div');
+                grassStripe.className = 'grass-stripe';
+                grassStripe.style.background = `repeating-linear-gradient(to top, 
+                    transparent 0px, 
+                    transparent ${lengthRandom < 0.7 ? '6px' : '4px'}, 
+                    rgba(255,255,255,0.15) ${lengthRandom < 0.7 ? '6px' : '4px'}, 
+                    rgba(255,255,255,0.15) ${lengthRandom < 0.7 ? '7px' : '5px'})`;
+                grassStem.appendChild(grassStripe);
+            }
+            
+            // Add grass tip
+            const grassTip = document.createElement('div');
+            grassTip.className = 'grass-tip';
+            grassTip.style.cssText = `
+                width: ${2.5 * grassData.thickness}px;
+                height: ${lengthRandom < 0.25 ? '2px' : lengthRandom < 0.7 ? '4px' : '6px'};
+            `;
+            grassStem.appendChild(grassTip);
+            
+            grassElement.appendChild(grassStem);
+            
+            return {
+                element: grassElement,
+                data: grassData,
+                stem: grassStem
+            };
+        }
+
+        // Apply grass splitting/pushing effect based on mouse position
+        function applyGrassSplittingEffect(mouseX, mouseY) {
+            if (!gameState.grassElements || gameState.grassElements.length === 0) {
+                console.log('🌿 갈대 요소가 없음');
+                return;
+            }
+            
+            // Only apply effect in grass area (bottom 25%)
+            if (mouseY < 75) {
+                return;
+            }
+            
+            const mouseRadius = 12; // Smaller radius for more precise effect
+            const maxPushDistance = 6; // Reduced push distance for more natural movement
+            const maxRotation = 20; // Reduced rotation for more natural movement
+            const splitIntensity = 0.8; // How much grass splits apart
+            
+            gameState.grassElements.forEach(grassObj => {
+                const grass = grassObj.data;
+                const grassElement = grassObj.element;
+                const grassStem = grassObj.stem;
+                
+                // Calculate distance from mouse to grass
+                const distanceX = Math.abs(mouseX - grass.x);
+                const distanceY = Math.abs(mouseY - grass.y);
+                const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+                
+                // Only affect grass within the mouse radius and in the grass area (bottom 25%)
+                if (distance <= mouseRadius && mouseY >= 75) {
+                    // Calculate effect intensity with smoother curve
+                    const intensity = 1 - Math.pow(distance / mouseRadius, 1.8);
+                    const smoothIntensity = Math.pow(intensity, 2); // Smoother curve
+                    
+                    // Calculate push direction (away from mouse)
+                    const pushDirectionX = (grass.x - mouseX) / distance;
+                    const pushDirectionY = (grass.y - mouseY) / distance;
+                    
+                    // Apply push effect with natural curve
+                    const pushDistanceX = pushDirectionX * maxPushDistance * smoothIntensity;
+                    const pushDistanceY = pushDirectionY * maxPushDistance * smoothIntensity * 0.3; // Less vertical movement
+                    
+                    // Calculate rotation with natural splitting effect
+                    const rotationAngle = maxRotation * smoothIntensity * grass.splitDirection;
+                    
+                    // Apply transformations
+                    const newX = grass.baseX + pushDistanceX;
+                    const newY = grass.baseY + pushDistanceY;
+                    const newRotation = grass.baseRotation + rotationAngle;
+                    
+                    // Update grass element position with smooth transition
+                    grassElement.style.left = `${newX}%`;
+                    grassElement.style.top = `${newY}%`;
+                    
+                    // Update grass stem rotation with natural splitting
+                    grassStem.style.transform = `rotate(${newRotation}deg) scale(${grass.size}) scaleY(${grass.height})`;
+                    
+                    // Add natural splitting animation
+                    if (!grass.isBeingAffected) {
+                        grassElement.style.animation = `grassSplit 0.4s cubic-bezier(0.4, 0, 0.2, 1)`;
+                        setTimeout(() => {
+                            grassElement.style.animation = '';
+                        }, 400);
+                    }
+                    
+                    // Mark as being affected
+                    grass.isBeingAffected = true;
+                    grass.lastMouseDistance = distance;
+                    
+                    // Add visual feedback with natural color changes
+                    const brightnessBoost = 1 + smoothIntensity * 0.15;
+                    const colorShift = smoothIntensity * 15;
+                    grassElement.style.filter = `brightness(${brightnessBoost})`;
+                    grassStem.style.background = `linear-gradient(to top, 
+                        hsl(${110 + colorShift}, 45%, 20%) 0%,
+                        hsl(${115 + colorShift}, 40%, 28%) 30%,
+                        hsl(${120 + colorShift}, 35%, 38%) 70%,
+                        hsl(${125 + colorShift}, 30%, 48%) 100%)`;
+                    
+                } else {
+                    // Gradually return to original position with natural spring-back effect
+                    if (grass.isBeingAffected) {
+                        const returnSpeed = 0.08; // Slower return for more natural movement
+                        
+                        // Calculate current position
+                        const currentX = parseFloat(grassElement.style.left);
+                        const currentY = parseFloat(grassElement.style.top);
+                        
+                        // Interpolate back to base position with easing
+                        const newX = currentX + (grass.baseX - currentX) * returnSpeed;
+                        const newY = currentY + (grass.baseY - currentY) * returnSpeed;
+                        const newRotation = grass.baseRotation + (grass.baseRotation - parseFloat(grassStem.style.transform.match(/rotate\(([^)]+)\)/)?.[1] || 0)) * returnSpeed;
+                        
+                        // Update positions
+                        grassElement.style.left = `${newX}%`;
+                        grassElement.style.top = `${newY}%`;
+                        grassStem.style.transform = `rotate(${newRotation}deg) scale(${grass.size}) scaleY(${grass.height})`;
+                        
+                        // Gradually reduce visual effects
+                        const remainingEffect = grass.lastMouseDistance < mouseRadius ? 0.05 : 0;
+                        grassElement.style.filter = `brightness(${1 + remainingEffect})`;
+                        grassStem.style.background = `linear-gradient(to top, 
+                            hsl(110, 40%, 18%) 0%,
+                            hsl(115, 35%, 25%) 30%,
+                            hsl(120, 30%, 35%) 70%,
+                            hsl(125, 25%, 45%) 100%)`;
+                        
+                        // Check if grass has returned close enough to base position
+                        const distanceFromBase = Math.sqrt(
+                            Math.pow(newX - grass.baseX, 2) + 
+                            Math.pow(newY - grass.baseY, 2)
+                        );
+                        
+                        if (distanceFromBase < 0.3) { // Tighter tolerance
+                            // Reset to exact base position
+                            grassElement.style.left = `${grass.baseX}%`;
+                            grassElement.style.top = `${grass.baseY}%`;
+                            grassStem.style.transform = grass.originalTransform;
+                            grassElement.style.filter = 'brightness(1)';
+                            grassStem.style.background = `linear-gradient(to top, 
+                                hsl(110, 40%, 18%) 0%,
+                                hsl(115, 35%, 25%) 30%,
+                                hsl(120, 30%, 35%) 70%,
+                                hsl(125, 25%, 45%) 100%)`;
+                            grass.isBeingAffected = false;
+                            grass.lastMouseDistance = Infinity;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Add game event listeners
+        function addGameEventListeners() {
+            const gameInterface = document.getElementById('gameInterface');
+            if (!gameInterface) return;
+            
+            // Mouse move for cursor and light effect
+            gameInterface.addEventListener('mousemove', handleGameMouseMove);
+            
+            // Click for message discovery
+            gameInterface.addEventListener('click', handleGameClick);
+        }
+
+        // Handle mouse movement in game
+        function handleGameMouseMove(event) {
+            if (!gameState.isGameActive || gameState.isLoading) {
+                console.log('🎮 마우스 이벤트 무시:', { isGameActive: gameState.isGameActive, isLoading: gameState.isLoading });
+                return;
+            }
+            
+            // Throttle mouse move events for better performance
+            const now = Date.now();
+            if (now - gameState.lastMouseMoveTime < gameState.mouseMoveThrottle) {
+                return;
+            }
+            gameState.lastMouseMoveTime = now;
+            
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const xPercent = (x / rect.width) * 100;
+            const yPercent = (y / rect.height) * 100;
+            
+            // Update custom cursor
+            const customCursor = document.getElementById('customCursor');
+            if (customCursor) {
+                customCursor.style.left = x + 'px';
+                customCursor.style.top = y + 'px';
+                customCursor.style.display = yPercent >= 80 ? 'block' : 'none';
+            }
+            
+            // Update light effect
+            const lightEffect = document.getElementById('lightEffect');
+            if (lightEffect) {
+                lightEffect.style.left = x + 'px';
+                lightEffect.style.top = y + 'px';
+                lightEffect.style.display = yPercent >= 80 ? 'block' : 'none';
+            }
+            
+            // Apply grass splitting/pushing effect
+            applyGrassSplittingEffect(xPercent, yPercent);
+            
+            // Check for message discovery (2% chance when in grass area)
+            if (yPercent >= 80 && gameState.selectedEmotion) {
+                const timeSinceLastDiscovery = now - gameState.lastDiscoveryTime;
+                
+                if (timeSinceLastDiscovery >= 2000 && Math.random() < 0.02) {
+                    handleGrassClick(xPercent, yPercent);
+                }
+            }
+        }
+
+        // Handle click in game
+        function handleGameClick(event) {
+            if (!gameState.isGameActive || gameState.isLoading) return;
+            
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+            
+            // Only allow clicks in grass area (bottom 20%)
+            if (y >= 80) {
+                handleGrassClick(x, y);
+            }
+        }
+
+        // Handle grass click for message discovery
+        async function handleGrassClick(x, y) {
+            if (gameState.isLoading) return;
+            
+            console.log('🌿 갈대 클릭:', x, y);
+            
+            gameState.isLoading = true;
+            showGameLoading(true);
+            
+            try {
+                // Generate random context
+                const timeOfDay = ['아침', '오후', '저녁', '밤'][Math.floor(Math.random() * 4)];
+                const weather = ['맑은', '흐린', '비오는', '눈오는', '바람부는'][Math.floor(Math.random() * 5)];
+                const season = ['봄', '여름', '가을', '겨울'][Math.floor(Math.random() * 4)];
+                const location = ['갈대밭', '들판', '언덕', '강가', '숲가'][Math.floor(Math.random() * 5)];
+                const messageType = ['위로', '격려', '공감', '희망', '치유'][Math.floor(Math.random() * 5)];
+                
+                const emotionName = gameState.selectedEmotion.name;
+                const paintingTitle = gameState.currentPainting.title;
+                const artistName = gameState.currentPainting.artist;
+                
+                // Create prompt template
+                const promptTemplates = [
+                    `${emotionName} 감정을 느끼는 사용자가 ${timeOfDay}의 ${weather} ${paintingTitle}(${artistName}) 속 ${location}에서 쉬고 있습니다. ${messageType}의 메시지를 한 문장으로 전해주세요.`,
+                    `${season} ${timeOfDay}, ${paintingTitle} 명화를 바라보며 ${emotionName}한 마음을 달래고 있는 사람에게 따뜻한 한 문장을 건네주세요.`,
+                    `${artistName}의 ${paintingTitle} 앞에서 ${emotionName} 감정에 잠겨있는 누군가가 ${weather} 날씨의 ${location}을 거닐고 있습니다. 자연스러운 위로를 한 문장으로 표현해주세요.`
+                ];
+                
+                const randomTemplate = promptTemplates[Math.floor(Math.random() * promptTemplates.length)];
+                const styles = ['시적이고 은유적으로', '따뜻하고 친근하게', '지혜롭고 철학적으로', '부드럽고 감성적으로', '희망적이고 긍정적으로'];
+                const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+                
+                const finalPrompt = `${randomTemplate} 메시지는 ${randomStyle} 작성해주세요. 10단어 이내의 간결하고 따뜻한 한 문장으로 만들어주세요.`;
+                
+                // Generate message using Claude API
+                const message = await generateEmotionMessage(finalPrompt);
+                
+                // Create message element
+                createGameMessage(x, y, message);
+                
+                // Update counters
+                gameState.totalDiscoveries++;
+                gameState.currentMessages++;
+                gameState.lastDiscoveryTime = Date.now();
+                
+                updateGameCounters();
+                
+            } catch (error) {
+                console.error('❌ 메시지 생성 오류:', error);
+                
+                // Fallback messages
+                const fallbackMessages = [
+                    "이 순간도 지나갈 것입니다. 당신은 충분히 소중한 사람이에요.",
+                    "깊은 숨을 한 번 쉬어보세요. 당신은 혼자가 아니에요.",
+                    "지금 느끼는 감정도 당신의 소중한 일부입니다.",
+                    "오늘 하루도 충분히 잘하고 계세요.",
+                    "당신의 마음이 평안해지기를 바라요."
+                ];
+                
+                const randomFallback = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+                createGameMessage(x, y, randomFallback);
+                
+                // Update counters
+                gameState.totalDiscoveries++;
+                gameState.currentMessages++;
+                gameState.lastDiscoveryTime = Date.now();
+                updateGameCounters();
+            }
+            
+            gameState.isLoading = false;
+            showGameLoading(false);
+        }
+
+        // Generate emotion message using server proxy
+        async function generateEmotionMessage(prompt) {
+            try {
+                const response = await fetch("/api/generate-emotion-message", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ prompt })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (errorData.fallbackMessage) {
+                        return errorData.fallbackMessage;
+                    }
+                    throw new Error(`API 오류: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.message || "이 순간이 지나가면 더 밝은 내일이 기다리고 있을 거예요.";
+                
+            } catch (error) {
+                console.error('❌ 감정 메시지 생성 오류:', error);
+                // 폴백 메시지 반환
+                const fallbackMessages = [
+                    '이 순간이 지나가면 더 밝은 내일이 기다리고 있을 거예요.',
+                    '작은 변화가 큰 기적을 만들어낼 수 있어요.',
+                    '당신의 감정이 아름다운 예술이 되었어요.',
+                    '이 순간의 감정을 소중히 간직해보세요.',
+                    '새로운 경험이 당신을 더 풍부하게 만들어요.'
+                ];
+                return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+            }
+        }
+
+        // Create game message element
+        function createGameMessage(x, y, text) {
+            const gameMessages = document.getElementById('gameMessages');
+            if (!gameMessages) return;
+            
+            // Remove previous messages with fade out
+            const existingMessages = gameMessages.querySelectorAll('.game-message');
+            existingMessages.forEach(msg => {
+                msg.style.animation = 'fadeOut 0.3s ease-in forwards';
+                setTimeout(() => msg.remove(), 300);
+            });
+            
+            // Create new message
+            const messageElement = document.createElement('div');
+            messageElement.className = 'game-message';
+            messageElement.style.cssText = `
+                left: ${x}%;
+                top: ${Math.max(y - 25, 5)}%;
+            `;
+            
+            messageElement.innerHTML = `
+                <div class="message-container">
+                    <div class="message-glow"></div>
+                    <div class="message-box">
+                        <div class="message-sparkle">✨</div>
+                        <div class="message-text">${text.length > 50 ? text.substring(0, 50) + '...' : text}</div>
+                        <div class="message-time">
+                            <span>💚</span>
+                            ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div class="message-tail"></div>
+                    </div>
+                </div>
+            `;
+            
+            gameMessages.appendChild(messageElement);
+            
+            // Remove message after 8 seconds
+            setTimeout(() => {
+                if (messageElement.parentNode) {
+                    messageElement.style.animation = 'fadeOut 0.3s ease-in forwards';
+                    setTimeout(() => messageElement.remove(), 300);
+                    gameState.currentMessages = Math.max(0, gameState.currentMessages - 1);
+                    updateGameCounters();
+                }
+            }, 8000);
+        }
+
+        // Show/hide game loading
+        function showGameLoading(show) {
+            const gameLoading = document.getElementById('gameLoading');
+            if (gameLoading) {
+                gameLoading.style.display = show ? 'block' : 'none';
+            }
+        }
+
+        // Update game counters
+        function updateGameCounters() {
+            const counterNumber = document.getElementById('counterNumber');
+            const currentMessages = document.getElementById('currentMessages');
+            
+            if (counterNumber) {
+                counterNumber.textContent = gameState.totalDiscoveries;
+            }
+            
+            if (currentMessages) {
+                currentMessages.textContent = gameState.currentMessages;
+            }
+        }
+
+        // Go to home screen
+        function goToHome() {
+            console.log('🏠 홈 화면으로 이동');
+            
+            // Reset game state
+            gameState = {
+                currentPainting: null,
+                selectedEmotion: null,
+                isGameActive: false,
+                isLoading: false,
+                totalDiscoveries: 0,
+                currentMessages: 0,
+                lastDiscoveryTime: 0,
+                messageIdCounter: 0,
+                grassElements: []
+            };
+            
+            // Hide emotion game section completely
+            const emotionGameSection = document.querySelector('.emotion-game-section');
+            if (emotionGameSection) {
+                emotionGameSection.classList.remove('show');
+            }
+            
+            // Reset file input
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            
+            // Clear any displayed results
+            const resultSection = document.getElementById('resultSection');
+            if (resultSection) {
+                resultSection.innerHTML = '';
+            }
+            
+            // Reset progress
+            hideProgress();
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize game when page loads (but don't start automatically)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Don't auto-start the emotion game - it will be started manually via button
+            console.log('🎮 Emotion Game ready (manual start)');
+        });
+
+        function showHelp() {
+            alert('도움말\n\n1. 이미지를 업로드하세요\n2. Generate Art 버튼을 클릭하세요\n3. AI가 감정을 분석하고 명화와 합성합니다\n4. 결과를 다운로드하세요');
+        }
+
+        // Contact 팝업 (public/contact.html)
+        function openContactPopup() {
+            try {
+                const screenW = window.screen.availWidth || window.innerWidth;
+                const screenH = window.screen.availHeight || window.innerHeight;
+                const width = Math.min(980, Math.floor(screenW * 0.85));
+                const height = Math.min(900, Math.floor(screenH * 0.88));
+                const left = Math.max(0, Math.floor((screenW - width) / 2));
+                const top = Math.max(0, Math.floor((screenH - height) / 2));
+                const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,noopener=yes`;
+                const win = window.open('contact.html', 'MeArtContact', features);
+                if (!win) alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+            } catch (e) {
+                console.error('openContactPopup 오류:', e);
+                alert('Contact를 열 수 없습니다.');
+            }
+        }
+
+        // 개인정보 처리방침 팝업 (public/meart-privacy-policy.html)
+        function openPrivacyPolicy() {
+            try {
+                const screenW = window.screen.availWidth || window.innerWidth;
+                const screenH = window.screen.availHeight || window.innerHeight;
+                const width = Math.min(860, Math.floor(screenW * 0.8));
+                const height = Math.min(900, Math.floor(screenH * 0.85));
+                const left = Math.max(0, Math.floor((screenW - width) / 2));
+                const top = Math.max(0, Math.floor((screenH - height) / 2));
+                const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,noopener=yes`;
+                const win = window.open('meart-privacy-policy.html', 'MeArtPrivacyPolicy', features);
+                if (!win) alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+            } catch (e) {
+                console.error('openPrivacyPolicy 오류:', e);
+                alert('개인정보 처리방침을 열 수 없습니다.');
+            }
+        }
+
+        function showContact() {
+            alert('문의사항\n\n이메일: contact@meart.ai\n전화: 02-1234-5678');
+        }
+
+        function showPrivacy() {
+            alert('개인정보 처리방침\n\n업로드된 이미지는 처리 후 자동으로 삭제됩니다.\n개인정보는 서비스 제공 목적으로만 사용됩니다.');
+        }
+
+        function showTerms() {
+            alert('서비스 약관\n\n본 서비스는 AI 기술을 활용한 예술 작품 생성 서비스입니다.\n상업적 이용 시 별도 문의 바랍니다.');
+        }
+
+        // Brush Effect
+        async function applyBrushEffect(nobgPath, backgroundPath, emotion) {
+            if (!nobgPath || !backgroundPath) {
+                alert('브러시 효과를 적용할 수 없습니다. 먼저 이미지 처리를 완료해주세요.');
+                return;
+            }
+
+            console.log('🎨 브러시 효과 적용 시작:', { nobgPath, backgroundPath, emotion });
+
+            showProgress(0, '브러시 효과 적용 중...');
+
+            try {
+                const response = await fetch('/api/apply-brush-effect', {
+            method: 'POST',
+            headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        nobgPath: nobgPath,
+                        backgroundPath: backgroundPath,
+                        emotion: emotion
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 브러시 효과 API 오류:', response.status, errorText);
+                    throw new Error(`브러시 효과 적용 실패: ${response.status}`);
+                }
+
+                showProgress(80, '브러시 효과 처리 중...');
+
+                    const result = await response.json();
+                console.log('🎨 브러시 효과 결과:', result);
+
+                // 브러시 효과 API는 processedImageUrl을 반환 (success 필드 없음)
+                if (result.processedImageUrl) {
+                    showProgress(100, '브러시 효과 완료!');
+                    
+                    const brushImageUrl = result.processedImageUrl;
+                    // 브러시 효과 결과를 새로운 카드로 추가
+                    const brushHtml = `
+                        <div class="preview-item">
+                            <h4>✨ 브러시 효과 적용 완료</h4>
+                            <img src="${brushImageUrl}" alt="브러시 효과 결과" class="preview-image" onclick="downloadImage('${brushImageUrl}', 'meart_brush_result.png')">
+                            <div style="margin-top: 1rem;">
+                                <button class="tux-btn tux-btn-primary" onclick="downloadImage('${brushImageUrl}', 'meart_brush_${Date.now()}.png')" style="width: 100%;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" x2="12" y1="15" y2="3"></line>
+                                    </svg>
+                                    브러시 아트 다운로드
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.5rem;">
+                                <button class="tux-btn tux-btn-secondary" onclick="startEmotionGamePopup()" style="width: 100%;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polygon points="10,8 16,12 10,16 10,8"></polygon>
+                                    </svg>
+                                    감정 게임 시작
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-muted); text-align: center;">
+                                Neural Style Transfer 적용 완료 (${result.emotion || 'neutral'} 감정)
+                            </div>
+                        </div>
+                    `;
+                    
+                    previewGrid.innerHTML += brushHtml;
+                    
+                    // 새로 추가된 결과로 스크롤
+                    setTimeout(() => {
+                        const newCard = previewGrid.lastElementChild;
+                        if (newCard) {
+                            newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 300);
+                    
+                    // 브러시 효과 결과 저장
+                    lastBrushResult = {
+                        processedImageUrl: brushImageUrl,
+                        emotion: result.emotion || 'neutral',
+                        backgroundPath: backgroundPath,
+                        backgroundTitle: '현재 배경'
+                    };
+                    
+                } else {
+                    throw new Error(result.error || '브러시 효과 적용 실패: 결과 이미지가 없습니다');
+                }
+
+            } catch (error) {
+                console.error('❌ 브러시 효과 오류:', error);
+                alert('브러시 효과 적용 중 오류가 발생했습니다: ' + error.message);
+                } finally {
+                hideProgress();
+                }
+        }
+
+        // Start Emotion Game in Popup
+        function startEmotionGamePopup() {
+            console.log('🎮 감정 게임 팝업 시작');
+            
+            // Check if we have brush effect result
+            if (!lastBrushResult || !lastBrushResult.processedImageUrl) {
+                alert('감정 게임을 시작하려면 먼저 브러시 효과를 적용해주세요.');
+                return;
+            }
+            
+            // Store brush result and emotion in localStorage for Emotion-Garden.html
+            localStorage.setItem('brushResultImageUrl', lastBrushResult.processedImageUrl);
+            localStorage.setItem('processedImageUrl', lastBrushResult.processedImageUrl);
+            if (lastBrushResult.emotion) {
+                localStorage.setItem('emotion', lastBrushResult.emotion);
+            }
+            
+            // Create popup window with 9:16 aspect ratio
+            const popupWidth = 400;
+            const popupHeight = Math.round(popupWidth * 16 / 9); // 9:16 ratio
+            const left = (window.screen.width - popupWidth) / 2;
+            const top = (window.screen.height - popupHeight) / 2;
+            
+            const popup = window.open('Emotion-Garden.html?auto=1', 'EmotionGamePopup', 
+                `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=no,resizable=no,toolbar=no,menubar=no,location=no,status=no`
+            );
+            
+            if (!popup) {
+                alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
+                return;
+            }
+
+        }
+
+        // Initialize Emotion Game with Brush Result
+        function initEmotionGameWithBrushResult(emotion, brushResultImage) {
+            console.log('🎮 브러시 결과로 감정 게임 초기화:', { emotion, brushResultImage });
+            
+            // Find the emotion object that matches the emotion
+            const emotionMapping = {
+                'happiness': 'happy',
+                'sadness': 'sad',
+                'anger': 'angry',
+                'fear': 'fear',
+                'surprise': 'surprise',
+                'disgust': 'disgust',
+                'neutral': 'neutral'
+            };
+            
+            const emotionId = emotionMapping[emotion] || 'neutral';
+            const selectedEmotion = gameEmotions.find(e => e.id === emotionId) || gameEmotions[0];
+            
+            // Set game state
+            gameState.selectedEmotion = selectedEmotion;
+            gameState.currentPainting = { image: brushResultImage, title: 'Brush Effect Result' };
+            
+            // Set background image to brush effect result
+            const gameBackground = document.getElementById('gameBackground');
+            if (gameBackground) {
+                gameBackground.style.backgroundImage = `url(${brushResultImage})`;
+            }
+            
+            // Hide emotion selection modal
+            const emotionModal = document.getElementById('emotionSelectionModal');
+            if (emotionModal) {
+                emotionModal.classList.remove('show');
+            }
+            
+            // Start game directly
+            startEmotionGame();
+            
+            console.log('🎮 브러시 결과 기반 감정 게임 시작 완료');
+        }
+
+        // Mouse hover functionality for menu
+        document.addEventListener('DOMContentLoaded', function() {
+            const menu = document.querySelector('.tux-floating-menu');
+            const dropdown = document.getElementById('menuDropdown');
+            let hoverTimeout;
+            
+            // Show menu on mouse enter
+            menu.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                dropdown.classList.add('show');
+                window.menuOpen = true;
+            });
+            
+            // Hide menu on mouse leave with small delay
+            menu.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(function() {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }, 200); // 200ms delay for better UX
+            });
+            
+            // Prevent menu from closing when hovering over dropdown items
+            dropdown.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+            });
+            
+            dropdown.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(function() {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }, 200);
+            });
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.querySelector('.tux-floating-menu');
+            if (!menu.contains(event.target)) {
+                const dropdown = document.getElementById('menuDropdown');
+                dropdown.classList.remove('show');
+                window.menuOpen = false;
+            }
+        });
+
+        // Close emotion game with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const emotionGameSection = document.querySelector('.emotion-game-section');
+                if (emotionGameSection && emotionGameSection.classList.contains('show')) {
+                    goToHome();
+                }
+            }
+        });
+
+        // Gallery functionality
+        let galleryImages = [];
+
+        function showGallery() {
+            console.log('🎨 갤러리 열기');
+            
+            try {
+                // 메뉴 닫기
+                const dropdown = document.getElementById('menuDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }
+                
+                // 갤러리 모달 표시
+                const modal = document.getElementById('galleryModal');
+                if (modal) {
+                    modal.classList.add('show');
+                    // 갤러리 이미지 로드
+                    loadGalleryImages();
+                    console.log('갤러리 모달이 열렸습니다.');
+                } else {
+                    console.error('갤러리 모달을 찾을 수 없습니다.');
+                    alert('갤러리를 열 수 없습니다. 페이지를 새로고침해주세요.');
+                }
+            } catch (error) {
+                console.error('showGallery 오류:', error);
+                alert('갤러리를 열 수 없습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+
+        function closeGallery() {
+            const modal = document.getElementById('galleryModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
+        function loadGalleryImages() {
+            console.log('🔄 갤러리 이미지 로딩 시작...');
+            
+            // 업로드 폴더에서 이미지 목록을 가져오는 API 호출
+            fetch('/api/gallery', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    console.log('📡 갤러리 API 응답 상태:', response.status, response.statusText);
+                    
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error('❌ 갤러리 API HTTP 오류:', response.status, text);
+                            throw new Error(`HTTP ${response.status}: ${text}`);
+                        });
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('📊 갤러리 API 응답 데이터:', data);
+                    
+                    if (data.success) {
+                        displayGalleryImages(data.images);
+                    } else {
+                        console.error('갤러리 로드 실패:', data.error);
+                        displayEmptyGallery();
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ 갤러리 API 전체 오류:', error);
+                    console.error('❌ 오류 스택:', error.stack);
+                    
+                    // 사용자에게 더 친화적인 오류 메시지 표시
+                    const galleryGrid = document.getElementById('galleryGrid');
+                    galleryGrid.innerHTML = `
+                        <div style="
+                            grid-column: 1 / -1; 
+                            text-align: center; 
+                            padding: 3rem; 
+                            color: var(--text-muted);
+                        ">
+                            <div style="font-size: 1.2rem; margin-bottom: 0.5rem; color: #f56565;">갤러리 로드 실패</div>
+                            <div style="font-size: 0.9rem; margin-bottom: 1rem;">서버 연결에 문제가 있습니다</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${error.message}</div>
+                            <button onclick="loadGalleryImages()" style="
+                                margin-top: 1rem;
+                                padding: 0.5rem 1rem;
+                                background: var(--primary-color);
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                            ">다시 시도</button>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayGalleryImages(images) {
+            const galleryGrid = document.getElementById('galleryGrid');
+            
+            if (!images || images.length === 0) {
+                displayEmptyGallery();
+                return;
+            }
+
+            const html = images.map(image => `
+                <div class="gallery-item" onclick="downloadImage('${image.url}', '${image.filename}')">
+                    <img src="${image.url}" alt="${image.title}" loading="lazy">
+                    <div class="gallery-item-info">
+                        <div class="gallery-item-title">${image.title}</div>
+                        <div class="gallery-item-meta">
+                            ${image.emotion ? `감정: ${image.emotion} | ` : ''}
+                            ${image.date}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            galleryGrid.innerHTML = html;
+        }
+
+        function displayEmptyGallery() {
+            const galleryGrid = document.getElementById('galleryGrid');
+            galleryGrid.innerHTML = `
+                <div style="
+                    grid-column: 1 / -1; 
+                    text-align: center; 
+                    padding: 3rem; 
+                    color: var(--text-muted);
+                ">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                        <circle cx="9" cy="9" r="2"></circle>
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                    </svg>
+                    <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">갤러리가 비어있습니다</div>
+                    <div>이미지를 업로드하고 아트를 생성해보세요!</div>
+                </div>
+            `;
+        }
+
+        // Firebase Auth functionality
+        let isLoginMode = true;
+        window.currentUser = null; // Make currentUser globally accessible
+
+        // Initialize Firebase if not already initialized
+        if (typeof firebase !== 'undefined') {
+            // Auth state observer
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (user) {
+                    window.currentUser = user;
+                    console.log('✅ 로그인됨:', user.email);
+                    updateAuthUI();
+                } else {
+                    window.currentUser = null;
+                    console.log('❌ 로그아웃됨');
+                    updateAuthUI();
+                }
+            });
+        } else {
+            console.warn('Firebase가 로드되지 않았습니다.');
+        }
+
+        function updateAuthUI() {
+            const loginBtn = document.getElementById('menuLoginBtn');
+            const signupBtn = document.getElementById('menuSignupBtn');
+            
+            if (window.currentUser) {
+                if (loginBtn) loginBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 11H1a8 8 0 0 1 8-8v8z"></path>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    ${window.currentUser.email}
+                `;
+                if (signupBtn) signupBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 12l2 2 4-4"></path>
+                        <circle cx="12" cy="12" r="9"></circle>
+                    </svg>
+                    로그아웃
+                `;
+                // 로그아웃 기능을 signupBtn에 연결
+                if (signupBtn) {
+                    signupBtn.onclick = function() {
+                        if (typeof firebase !== 'undefined') {
+                            firebase.auth().signOut().then(() => {
+                                alert('로그아웃되었습니다!');
+                                updateAuthUI();
+                            }).catch((error) => {
+                                console.error('로그아웃 오류:', error);
+                                alert('로그아웃 중 오류가 발생했습니다.');
+                            });
+                        } else {
+                            alert('Firebase가 로드되지 않았습니다.');
+                        }
+                    };
+                }
+            } else {
+                if (loginBtn) loginBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" x2="3" y1="12" y2="12"></line>
+                    </svg>
+                    로그인
+                `;
+                if (signupBtn) signupBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <line x1="19" x2="19" y1="8" y2="14"></line>
+                        <line x1="22" x2="16" y1="11" y2="11"></line>
+                    </svg>
+                    회원가입
+                `;
+                // 원래 기능으로 복원
+                if (loginBtn) loginBtn.onclick = showLogin;
+                if (signupBtn) signupBtn.onclick = showSignup;
+            }
+        }
+
+        function showLogin() {
+            console.log('🔐 로그인 모달 열기');
+            
+            try {
+                // 메뉴 닫기
+                const dropdown = document.getElementById('menuDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }
+                
+                if (window.currentUser) {
+                    // 이미 로그인 상태: 로그아웃하지 않고 안내만 표시
+                    alert('이미 로그인되어 있습니다!');
+                } else {
+                    // 로그인 모달 표시
+                    const authModal = document.getElementById('authModal');
+                    if (authModal) {
+                        isLoginMode = true;
+                        if (document.readyState === 'complete') {
+                            updateAuthModal();
+                        } else {
+                            document.addEventListener('DOMContentLoaded', function() {
+                                updateAuthModal();
+                            });
+                        }
+                        authModal.classList.add('show');
+                        console.log('로그인 모달이 열렸습니다.');
+                    } else {
+                        console.error('인증 모달을 찾을 수 없습니다.');
+                        alert('로그인 모달을 열 수 없습니다. 페이지를 새로고침해주세요.');
+                    }
+                }
+            } catch (error) {
+                console.error('showLogin 오류:', error);
+                alert('로그인 기능을 실행할 수 없습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+
+        function showSignup() {
+            console.log('📝 회원가입 모달 열기');
+            
+            try {
+                // 메뉴 닫기
+                const dropdown = document.getElementById('menuDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    window.menuOpen = false;
+                }
+                
+                if (window.currentUser) {
+                    // 이미 로그인된 상태 - 로그아웃 기능
+                    if (typeof firebase !== 'undefined') {
+                        firebase.auth().signOut().then(() => {
+                            alert('로그아웃되었습니다!');
+                            updateAuthUI(); // UI 업데이트
+                        }).catch((error) => {
+                            console.error('로그아웃 오류:', error);
+                            alert('로그아웃 중 오류가 발생했습니다.');
+                        });
+                    } else {
+                        alert('Firebase가 로드되지 않았습니다.');
+                    }
+                } else {
+                    // 회원가입 모달 표시
+                    const authModal = document.getElementById('authModal');
+                    if (authModal) {
+                        isLoginMode = false;
+                        // DOM이 준비될 때까지 기다린 후 updateAuthModal 호출
+                        if (document.readyState === 'complete') {
+                            updateAuthModal();
+                        } else {
+                            document.addEventListener('DOMContentLoaded', function() {
+                                updateAuthModal();
+                            });
+                        }
+                        authModal.classList.add('show');
+                        console.log('회원가입 모달이 열렸습니다.');
+                    } else {
+                        console.error('인증 모달을 찾을 수 없습니다.');
+                        alert('회원가입 모달을 열 수 없습니다. 페이지를 새로고침해주세요.');
+                    }
+                }
+            } catch (error) {
+                console.error('showSignup 오류:', error);
+                alert('회원가입 기능을 실행할 수 없습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+
+        function updateAuthModal() {
+            // DOM이 완전히 로드되었는지 확인
+            if (document.readyState !== 'complete') {
+                console.log('DOM이 아직 로드되지 않았습니다. updateAuthModal을 지연시킵니다.');
+                setTimeout(updateAuthModal, 100);
+                return;
+            }
+            
+            const title = document.getElementById('authTitle');
+            const btn = document.getElementById('authBtn');
+            const switchText = document.getElementById('authSwitchText');
+            const switchLink = document.getElementById('authSwitchLink');
+            
+            // null 체크 추가
+            if (!title || !btn || !switchText || !switchLink) {
+                console.error('인증 모달 요소를 찾을 수 없습니다:', { title, btn, switchText, switchLink });
+                console.log('현재 DOM 상태:', document.readyState);
+                return;
+            }
+            
+            if (isLoginMode) {
+                title.textContent = '로그인';
+                btn.textContent = '로그인';
+                switchText.textContent = '계정이 없으신가요? ';
+                switchLink.textContent = '회원가입';
+            } else {
+                title.textContent = '회원가입';
+                btn.textContent = '회원가입';
+                switchText.textContent = '이미 계정이 있으신가요? ';
+                switchLink.textContent = '로그인';
+            }
+            
+            // 입력 필드 초기화 (null 체크 추가)
+            const emailField = document.getElementById('authEmail');
+            const passwordField = document.getElementById('authPassword');
+            if (emailField) emailField.value = '';
+            if (passwordField) passwordField.value = '';
+            
+            hideAuthMessages();
+        }
+
+        function switchAuthMode() {
+            isLoginMode = !isLoginMode;
+            updateAuthModal();
+        }
+
+        function closeAuth() {
+            const modal = document.getElementById('authModal');
+            if (modal) {
+                modal.classList.remove('show');
+                hideAuthMessages();
+            }
+        }
+
+        function hideAuthMessages() {
+            const errorDiv = document.getElementById('authError');
+            const successDiv = document.getElementById('authSuccess');
+            
+            if (errorDiv) errorDiv.style.display = 'none';
+            if (successDiv) successDiv.style.display = 'none';
+        }
+
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            const successDiv = document.getElementById('authSuccess');
+            
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+            if (successDiv) {
+                successDiv.style.display = 'none';
+            }
+        }
+
+        function showAuthSuccess(message) {
+            const successDiv = document.getElementById('authSuccess');
+            const errorDiv = document.getElementById('authError');
+            
+            if (successDiv) {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+            }
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        }
+
+        async function handleAuth() {
+            const emailField = document.getElementById('authEmail');
+            const passwordField = document.getElementById('authPassword');
+            const btn = document.getElementById('authBtn');
+            
+            if (!emailField || !passwordField || !btn) {
+                console.error('인증 폼 요소를 찾을 수 없습니다:', { emailField, passwordField, btn });
+                alert('인증 폼을 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            const email = emailField.value;
+            const password = passwordField.value;
+            
+            if (!email || !password) {
+                showAuthError('이메일과 비밀번호를 입력해주세요.');
+                return;
+            }
+            
+            if (typeof firebase === 'undefined') {
+                showAuthError('Firebase가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = isLoginMode ? '로그인 중...' : '회원가입 중...';
+            hideAuthMessages();
+            
+            try {
+                if (isLoginMode) {
+                    // 로그인
+                    await firebase.auth().signInWithEmailAndPassword(email, password);
+                    showAuthSuccess('로그인되었습니다!');
+                    setTimeout(() => closeAuth(), 1500);
+                } else {
+                    // 회원가입
+                    await firebase.auth().createUserWithEmailAndPassword(email, password);
+                    showAuthSuccess('회원가입이 완료되었습니다!');
+                    setTimeout(() => closeAuth(), 1500);
+                }
+            } catch (error) {
+                console.error('인증 오류:', error);
+                let errorMessage = '알 수 없는 오류가 발생했습니다.';
+                
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage = '등록되지 않은 이메일입니다.';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage = '비밀번호가 올바르지 않습니다.';
+                        break;
+                    case 'auth/email-already-in-use':
+                        errorMessage = '이미 사용 중인 이메일입니다.';
+                        break;
+                    case 'auth/weak-password':
+                        errorMessage = '비밀번호는 6자 이상이어야 합니다.';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage = '올바른 이메일 형식이 아닙니다.';
+                        break;
+                    default:
+                        errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+                }
+                
+                showAuthError(errorMessage);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = isLoginMode ? '로그인' : '회원가입';
+            }
+        }
+
+        // Close auth modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const authModal = document.getElementById('authModal');
+            if (authModal) {
+                authModal.addEventListener('click', function(event) {
+                    if (event.target === this) {
+                        closeAuth();
+                    }
+                });
+            }
+        });
+
+        // Initialize gallery modal event listener after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close gallery modal when clicking outside
+            const galleryModal = document.getElementById('galleryModal');
+            if (galleryModal) {
+                galleryModal.addEventListener('click', function(event) {
+                    if (event.target === this) {
+                        closeGallery();
+                    }
+                });
+            }
+        });
+
+        // Generate emotion message with error handling
+        function generateEmotionMessage(emotion, context) {
+            if (!gameState.selectedEmotion) {
+                return Promise.resolve('감정을 선택해주세요.');
+            }
+            
+            const emotionName = gameState.selectedEmotion.name;
+            const currentTime = new Date().toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            // Try API first, then fallback to local messages
+            const prompt = `당신은 따뜻하고 공감적인 마음의 정원사입니다. ${emotionName} 감정을 느끼는 사람에게 ${currentTime}에 맞는 따뜻하고 위로가 되는 한 문장을 한국어로 작성해주세요. 이모지를 포함해서 50자 이내로 작성해주세요.`;
+            
+            return fetch("/api/generate-emotion-message", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ prompt })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API 호출 실패');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.fallbackMessage) {
+                    return data.fallbackMessage;
+                }
+                return data.message || '이 순간을 소중히 여기세요. 🌸';
+            })
+            .catch(error => {
+                console.log('API 호출 실패, 폴백 메시지 사용:', error);
+                
+                // Fallback messages if API fails
+                const fallbackMessages = {
+                    'happy': [
+                        '오늘은 정말 행복한 하루네요! 😊',
+                        '당신의 미소가 세상을 밝게 만들어요 ✨',
+                        '기쁨이 가득한 순간을 만끽하세요 🌟',
+                        '행복한 마음이 주변에 전파되고 있어요 💫'
+                    ],
+                    'sad': [
+                        '슬픈 마음이 이해됩니다. 곧 좋은 일이 있을 거예요 🌧️',
+                        '당신의 감정을 인정하고 받아들이세요 💙',
+                        '어려운 시간이 지나면 더 강해질 거예요 🌈',
+                        '슬픔도 인생의 중요한 부분이에요 🌊'
+                    ],
+                    'angry': [
+                        '화가 난 마음을 진정시켜보세요 🔥',
+                        '깊은 숨을 쉬며 마음을 가라앉혀보세요 🧘',
+                        '화는 자연스러운 감정이에요. 천천히 풀어보세요 💨',
+                        '당신의 감정을 이해합니다 💪'
+                    ],
+                    'fear': [
+                        '두려움은 자연스러운 반응이에요 🫂',
+                        '차근차근 한 걸음씩 나아가보세요 🚶',
+                        '당신은 생각보다 강해요 💪',
+                        '두려움을 인정하고 극복해보세요 🛡️'
+                    ],
+                    'surprise': [
+                        '놀라운 순간을 만끽하고 있네요! 😲',
+                        '예상치 못한 일이 기쁨을 가져올 수도 있어요 🎉',
+                        '새로운 경험을 즐겨보세요 ✨',
+                        '놀라움은 삶의 신비로움이에요 🌟'
+                    ],
+                    'disgust': [
+                        '불편한 감정을 인정하고 넘어가보세요 🤢',
+                        '새로운 관점으로 바라보면 달라질 수도 있어요 🔄',
+                        '당신의 감정이 옳습니다 💚',
+                        '시간이 지나면 나아질 거예요 ⏰'
+                    ],
+                    'neutral': [
+                        '평온한 마음으로 현재를 느껴보세요 😌',
+                        '차분한 마음이 지혜를 가져다줘요 🧘',
+                        '평온함도 아름다운 감정이에요 🌸',
+                        '조용한 순간을 소중히 여기세요 🤍'
+                    ]
+                };
+                
+                const emotionId = gameState.selectedEmotion.id;
+                const messages = fallbackMessages[emotionId] || fallbackMessages['neutral'];
+                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                
+                return randomMessage;
+            });
+        }
+
+    </script>
+    
+    <!-- Gallery Modal -->
+    <div class="gallery-modal" id="galleryModal">
+        <div class="gallery-content">
+            <div class="gallery-header">
+                <h2 class="gallery-title">🎨 AI 아트 갤러리</h2>
+                <button class="gallery-close" onclick="closeGallery()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" x2="6" y1="6" y2="18"></line>
+                        <line x1="6" x2="18" y1="6" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="gallery-grid" id="galleryGrid">
+                <!-- Gallery items will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-content">
+            <div class="auth-header">
+                <h2 class="auth-title" id="authTitle">로그인</h2>
+                <button class="auth-close" onclick="closeAuth()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" x2="6" y1="6" y2="18"></line>
+                        <line x1="6" x2="18" y1="6" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="auth-form">
+                <div class="auth-error" id="authError"></div>
+                <div class="auth-success" id="authSuccess"></div>
+                
+                <input type="email" id="authEmail" class="auth-input" placeholder="이메일" required>
+                <input type="password" id="authPassword" class="auth-input" placeholder="비밀번호" required>
+                
+                <button class="auth-btn" id="authBtn" onclick="handleAuth()">로그인</button>
+                
+                <div class="auth-switch">
+                    <span id="authSwitchText">계정이 없으신가요? </span>
+                    <a id="authSwitchLink" onclick="switchAuthMode()">회원가입</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emotion Game Section -->
+    <section class="emotion-game-section" id="emotionGameSection">
+        <button class="emotion-game-close-btn" onclick="goToHome()">✕</button>
+        <div class="emotion-game-container">
+            <div class="emotion-game-header">
+                <h2 class="emotion-game-title">
+                    <span class="leaf-icon">🌿</span>
+                    감정 정원 게임
+                    <span class="heart-icon">💚</span>
+                </h2>
+                <p class="emotion-game-subtitle">선택한 감정과 명화로 특별한 메시지를 발견해보세요</p>
+            </div>
+
+            <div class="emotion-game-content">
+                <!-- Game Background -->
+                <div class="game-background" id="gameBackground">
+                    <!-- Background image will be set dynamically -->
+                </div>
+
+                <!-- Sky Gradient -->
+                <div class="sky-gradient"></div>
+
+                <!-- Floating Clouds -->
+                <div class="floating-clouds">
+                    <div class="cloud" style="left: 10%; top: 5%; animation-delay: 0s;">☁️</div>
+                    <div class="cloud" style="left: 25%; top: 15%; animation-delay: 3s;">☁️</div>
+                    <div class="cloud" style="left: 40%; top: 8%; animation-delay: 6s;">☁️</div>
+                    <div class="cloud" style="left: 55%; top: 12%; animation-delay: 9s;">☁️</div>
+                    <div class="cloud" style="left: 70%; top: 6%; animation-delay: 12s;">☁️</div>
+                    <div class="cloud" style="left: 85%; top: 10%; animation-delay: 15s;">☁️</div>
+                </div>
+
+                <!-- Grass Field Gradient -->
+                <div class="grass-field-gradient"></div>
+
+                <!-- Emotion Selection Modal -->
+                <div class="emotion-selection-modal" id="emotionSelectionModal">
+                    <div class="emotion-modal-content">
+                        <h3 class="emotion-modal-title">지금 어떤 기분이신가요?</h3>
+                        <div class="emotion-grid" id="emotionGrid">
+                            <!-- Emotions will be populated dynamically -->
+                        </div>
+                        <button class="emotion-start-btn" id="emotionStartBtn" disabled>
+                            정원 탐험하기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Game Interface -->
+                <div class="game-interface" id="gameInterface" style="display: none;">
+                    <!-- Custom Cursor -->
+                    <div class="custom-cursor" id="customCursor">
+                        <div class="finger-shadow">👆</div>
+                        <div class="finger-main">👆</div>
+                        <div class="touch-effect"></div>
+                    </div>
+
+                    <!-- Light Effect -->
+                    <div class="light-effect" id="lightEffect"></div>
+
+                    <!-- Grass Field -->
+                    <div class="grass-field" id="grassField">
+                        <!-- Grass elements will be generated dynamically -->
+                    </div>
+
+                    <!-- Messages -->
+                    <div class="game-messages" id="gameMessages">
+                        <!-- Messages will appear here -->
+                    </div>
+
+                    <!-- Loading Indicator -->
+                    <div class="game-loading" id="gameLoading" style="display: none;">
+                        <div class="loading-container">
+                            <div class="loading-glow"></div>
+                            <div class="loading-content">
+                                <div class="sparkles-icon">✨</div>
+                                <div class="loading-sparkle-1">✨</div>
+                                <div class="loading-sparkle-2">🌱</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Instruction Message -->
+                    <div class="instruction-message" id="instructionMessage">
+                        <div class="instruction-content">
+                            🌿 갈대밭 위로 마우스를 움직이거나 클릭해서 감정 메시지를 발견해보세요
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discovery Counter -->
+                <div class="discovery-counter" id="discoveryCounter" style="display: none;">
+                    <div class="counter-container">
+                        <div class="counter-header">
+                            <div class="counter-sparkle">✨</div>
+                            <div class="counter-title">발견한 메시지</div>
+                        </div>
+                        <div class="counter-number" id="counterNumber">0</div>
+                        <div class="counter-subtitle">(현재: <span id="currentMessages">0</span>)</div>
+                    </div>
+                </div>
+
+                <!-- Bottom Controls -->
+                <div class="game-controls" id="gameControls" style="display: none;">
+                    <div class="controls-container">
+                        <div class="current-emotion">
+                            감정: <span id="currentEmotionDisplay">선택 안함</span>
+                        </div>
+                        <button class="reset-game-btn" onclick="goToHome()">
+                            Home
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        
+
+
+
+        
+    </script>
+</body>
+</html>
