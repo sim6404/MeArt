@@ -253,7 +253,7 @@ app.get('/api/gallery', (req, res) => {
         if (!fs.existsSync(uploadsDir)) {
             fs.mkdirSync(uploadsDir, { recursive: true });
             return res.json({
-                success: true,
+            success: true,
                 images: [],
                 message: 'Empty gallery'
             });
@@ -308,7 +308,7 @@ app.get('/api/gallery', (req, res) => {
             .slice(0, 50); // 최대 50개까지
         
         console.log(`📊 갤러리 이미지 발견: ${images.length}개`);
-        
+
         res.json({
             success: true,
             images: images,
@@ -560,8 +560,8 @@ function getThumbnailPath(imagePath) {
 function getArtworkRecommendations(emotion, selectedBackground, limit = 6) {
     try {
         console.log('🎨 명화 추천 리스트 생성:', emotion);
-        
-        const availableImages = getAvailableBackgroundImages();
+    
+    const availableImages = getAvailableBackgroundImages();
         let emotionImages = [];
         
         // 감정별 색인 파일 로드
@@ -611,7 +611,7 @@ function getArtworkRecommendations(emotion, selectedBackground, limit = 6) {
         
         // 키워드 기반 보완
         if (emotionImages.length < limit) {
-            const emotionKeywords = {
+    const emotionKeywords = {
                 'happiness': ['happy', 'joy', 'smile', 'laugh', 'cheer', 'festival', 'dance', 'harvest', 'bloom', 'breeze', 'irises', 'flowers', 'kyoto'],
                 'sadness': ['sad', 'sorrow', 'grief', 'tear', 'crucifixion', 'deluge', 'distress', 'saint', 'winter', 'ghost'],
                 'anger': ['angry', 'rage', 'fury', 'battle', 'devil', 'tiger', 'snake', 'legend', 'wetting', 'storm'],
@@ -707,19 +707,19 @@ function recommendBackgroundByEmotion(emotion) {
         
         const availableImages = getAvailableBackgroundImages();
         let emotionImages = [];
-        
-        // 감정 매핑 (다양한 감정 표현을 통일)
-        const emotionMapping = {
-            'happy': 'happiness',
-            'sad': 'sadness', 
-            'angry': 'anger',
-            'surprised': 'surprise',
+    
+    // 감정 매핑 (다양한 감정 표현을 통일)
+    const emotionMapping = {
+        'happy': 'happiness',
+        'sad': 'sadness', 
+        'angry': 'anger',
+        'surprised': 'surprise',
             'fear': 'fear',
             'disgust': 'disgust',
-            'neutral': 'neutral'
-        };
-        
-        const normalizedEmotion = emotionMapping[emotion] || emotion;
+        'neutral': 'neutral'
+    };
+    
+    const normalizedEmotion = emotionMapping[emotion] || emotion;
         console.log('🔄 정규화된 감정:', normalizedEmotion);
         
         // 새로운 색인 파일을 사용할 수 있는 경우
@@ -758,10 +758,10 @@ function recommendBackgroundByEmotion(emotion) {
                 'neutral': ['hampton', 'landscape', 'calm', 'louveciennes', 'orchard', 'wheat', 'olive', 'farmhouse', 'harvest', 'hare', 'table', 'bathers', 'interior']
             };
             
-            const keywords = emotionKeywords[normalizedEmotion] || [];
-            
+    const keywords = emotionKeywords[normalizedEmotion] || [];
+    
             const keywordImages = availableImages.filter(imagePath => {
-                const fileName = path.basename(imagePath).toLowerCase();
+            const fileName = path.basename(imagePath).toLowerCase();
                 return keywords.some(keyword => fileName.toLowerCase().includes(keyword.toLowerCase()));
             });
             
@@ -773,25 +773,25 @@ function recommendBackgroundByEmotion(emotion) {
             }
             
             console.log(`🔍 키워드 기반으로 ${keywordImages.length}개 추가 발견`);
-        }
-        
-        // 감정별 이미지가 없으면 전체에서 랜덤 선택
-        if (emotionImages.length === 0) {
+    }
+    
+    // 감정별 이미지가 없으면 전체에서 랜덤 선택
+    if (emotionImages.length === 0) {
             console.log('❌ 감정별 매칭 이미지가 없어서 전체 이미지에서 선택');
-            emotionImages = availableImages;
-        }
-        
-        // 이미지가 전혀 없으면 기본 이미지 반환
-        if (emotionImages.length === 0) {
+        emotionImages = availableImages;
+    }
+    
+    // 이미지가 전혀 없으면 기본 이미지 반환
+    if (emotionImages.length === 0) {
             console.log('❌ 사용 가능한 이미지가 없어서 기본 이미지 반환');
             return '/BG_image/hampton_court_green_1970.17.53.jpg';
-        }
-        
+    }
+    
         // 가중 랜덤 선택 (앞쪽 이미지일수록 높은 확률)
         let selectedImage;
         if (emotionImages.length <= 3) {
             // 이미지가 적으면 단순 랜덤
-            const randomIndex = Math.floor(Math.random() * emotionImages.length);
+    const randomIndex = Math.floor(Math.random() * emotionImages.length);
             selectedImage = emotionImages[randomIndex];
         } else {
             // 이미지가 많으면 가중 랜덤 (앞쪽 40% 확률, 나머지 60%)
@@ -813,8 +813,8 @@ function recommendBackgroundByEmotion(emotion) {
         console.log('  - 감정별 매칭 수:', emotionImages.length);
         console.log('  - 선택된 이미지:', selectedImage);
         console.log('  - 매칭된 이미지들:', emotionImages.slice(0, 5), emotionImages.length > 5 ? '...' : '');
-        
-        return selectedImage;
+    
+    return selectedImage;
         
     } catch (error) {
         console.error('❌ 배경 추천 중 오류:', error);

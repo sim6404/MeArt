@@ -8,12 +8,12 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     
-            <!-- Firebase SDK -->
-        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
-        <script src="firebase-config.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
     
     <style>
         /* CSS Reset & Base */
@@ -1748,8 +1748,8 @@
                         <path d="M12 5v14"></path>
                         <path d="m19 12-7 7-7-7"></path>
                     </svg>
-                </div>
-            </div>
+    </div>
+        </div>
         </section>
 
         <!-- Main Content -->
@@ -1973,8 +1973,8 @@
 
         // Event Listeners
         function setupEventListeners() {
-            fileInput.addEventListener('change', handleFileSelect);
-            
+        fileInput.addEventListener('change', handleFileSelect);
+
             // Drag and drop
             const uploadArea = document.querySelector('.tux-upload-area');
             uploadArea.addEventListener('dragover', (e) => {
@@ -2559,7 +2559,7 @@
                 }
                 
                 showProgress(80, '브러시 효과 처리 중...');
-                
+
                 const result = await response.json();
                 console.log('🎨 브러시 효과 재처리 결과:', result);
                 
@@ -2616,7 +2616,7 @@
                     // 성공 알림
                     alert(`✅ 새로운 배경 "${backgroundTitle}"로 브러시 효과 재처리가 완료되었습니다!`);
                     
-                } else {
+                    } else {
                     throw new Error(result.error || '브러시 효과 재처리 실패: 결과 이미지가 없습니다');
                 }
                 
@@ -2702,8 +2702,8 @@
                                 } else {
                                     alert('감정 게임을 시작할 수 없습니다. 페이지를 새로고침해주세요.');
                                 }
-                            }
-                        } catch (error) {
+                }
+            } catch (error) {
                             console.error('감정 게임 초기화 오류:', error);
                             alert('감정 게임을 시작할 수 없습니다. 페이지를 새로고침해주세요.');
                         }
@@ -3120,7 +3120,7 @@
             if (mouseY < 75) {
                 return;
             }
-            
+
             const mouseRadius = 12; // Smaller radius for more precise effect
             const maxPushDistance = 6; // Reduced push distance for more natural movement
             const maxRotation = 20; // Reduced rotation for more natural movement
@@ -3608,7 +3608,7 @@
             try {
                 const response = await fetch('/api/apply-brush-effect', {
             method: 'POST',
-            headers: {
+                    headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -3866,7 +3866,7 @@
             // 업로드 폴더에서 이미지 목록을 가져오는 API 호출
             fetch('/api/gallery', {
                 method: 'GET',
-                headers: {
+                    headers: {
                     'Content-Type': 'application/json'
                 }
             })
@@ -3885,9 +3885,9 @@
                 .then(data => {
                     console.log('📊 갤러리 API 응답 데이터:', data);
                     
-                    if (data.success) {
+                if (data.success) {
                         displayGalleryImages(data.images);
-                    } else {
+                } else {
                         console.error('갤러리 로드 실패:', data.error);
                         displayEmptyGallery();
                     }
@@ -3974,16 +3974,16 @@
         if (typeof firebase !== 'undefined') {
             // Auth state observer
             firebase.auth().onAuthStateChanged(function(user) {
-                if (user) {
+            if (user) {
                     window.currentUser = user;
                     console.log('✅ 로그인됨:', user.email);
-                    updateAuthUI();
-                } else {
+                updateAuthUI();
+            } else {
                     window.currentUser = null;
                     console.log('❌ 로그아웃됨');
-                    updateAuthUI();
-                }
-            });
+                updateAuthUI();
+            }
+        });
         } else {
             console.warn('Firebase가 로드되지 않았습니다.');
         }
@@ -4142,8 +4142,8 @@
             if (document.readyState !== 'complete') {
                 console.log('DOM이 아직 로드되지 않았습니다. updateAuthModal을 지연시킵니다.');
                 setTimeout(updateAuthModal, 100);
-                return;
-            }
+            return;
+        }
             
             const title = document.getElementById('authTitle');
             const btn = document.getElementById('authBtn');
@@ -4233,21 +4233,21 @@
             if (!emailField || !passwordField || !btn) {
                 console.error('인증 폼 요소를 찾을 수 없습니다:', { emailField, passwordField, btn });
                 alert('인증 폼을 찾을 수 없습니다. 페이지를 새로고침해주세요.');
-                return;
-            }
+                    return;
+                }
             
             const email = emailField.value;
             const password = passwordField.value;
             
             if (!email || !password) {
                 showAuthError('이메일과 비밀번호를 입력해주세요.');
-                return;
-            }
+                    return;
+                }
             
             if (typeof firebase === 'undefined') {
                 showAuthError('Firebase가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
-                return;
-            }
+                    return;
+                }
             
             btn.disabled = true;
             btn.textContent = isLoginMode ? '로그인 중...' : '회원가입 중...';
@@ -4259,7 +4259,7 @@
                     await firebase.auth().signInWithEmailAndPassword(email, password);
                     showAuthSuccess('로그인되었습니다!');
                     setTimeout(() => closeAuth(), 1500);
-                } else {
+                    } else {
                     // 회원가입
                     await firebase.auth().createUserWithEmailAndPassword(email, password);
                     showAuthSuccess('회원가입이 완료되었습니다!');
@@ -4290,7 +4290,7 @@
                 }
                 
                 showAuthError(errorMessage);
-            } finally {
+                } finally {
                 btn.disabled = false;
                 btn.textContent = isLoginMode ? '로그인' : '회원가입';
             }
@@ -4586,4 +4586,4 @@
         
     </script>
 </body>
-</html>
+</html> 
