@@ -1,5 +1,26 @@
 ---
-description:
-globs:
-alwaysApply: false
----
+description: |
+  동일한 에러(동일 스택트레이스/루트원인)에 대해 같은 수정(diff)을 반복 생성·적용하지 않도록 방지하는 규칙.
+  중복 패치를 탐지하면 패치를 중단하고 대안 제시/근본 원인 분석(RCA)로 전환한다.
+
+  규칙:
+  1) 패치 원장(.cursor/patch-ledger.json)에 모든 수정 내역 기록(에러 시그니처, 파일, diff 해시, 원인, 재현 방법)
+  2) 에러 시그니처는 로그를 정규화(불필요 경로/주소/UUID 제거, 메시지 소문자화, SHA-256 해시)
+  3) 제안된 diff가 기존 원장의 모든 hunk와 동일하면 패치 중단 후 대안 출력
+  4) 동일 시그니처에 대한 재시도는 2회로 제한, 초과 시 RCA 모드로 전환
+  5) 패치 전 git grep/AST 검사로 동일 코드 존재 여부 확인 → 이미 존재 시 "NO-OP: already applied" 출력
+  6) 민감 코드 영역에는 DO-NOT-TOUCH 주석 경계 사용
+  7) 출력 순서: PLAN(요약) → PATCHES(diff) → VERIFY(검증/롤백)
+  8) 비밀키는 환경변수만 참조, 로그/패치에 절대 포함 금지
+
+  출력 프라이머:
+  PLAN
+  - error_signature: <hash>
+  - seen_before: true|false
+  - previous_fixes: [<commit_like or hunk_hash>...]
+  - decision: {apply_patch|no_op_duplicate|rca_mode}
+
+  PATCHES
+  [경로]
+  ```diff
+  <diff>
