@@ -1,8 +1,9 @@
 services:
   - type: web
     name: meart-app
-    env: docker
-    dockerfilePath: Dockerfile
+    env: node
+    buildCommand: npm ci
+    startCommand: node server.js
     plan: free
     region: oregon
     branch: main
@@ -10,8 +11,3 @@ services:
       - key: NODE_ENV
         value: production
     healthCheckPath: /health
-    scaling:
-      minInstances: 1
-      maxInstances: 3
-      targetMemoryPercent: 80
-      targetCPUPercent: 70
