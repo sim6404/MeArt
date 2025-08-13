@@ -10,8 +10,3 @@ services:
       - key: NODE_ENV
         value: production
     healthCheckPath: /health
-    scaling:
-      minInstances: 1
-      maxInstances: 3
-      targetMemoryPercent: 80
-      targetCPUPercent: 70
