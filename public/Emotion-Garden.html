@@ -187,6 +187,7 @@
       secondsExploring: 0,
       timerInterval: null,
       foundMessages: [],
+      recentMessages: [],
       mouse: { x: 0, y: 0, inside: false }
     };
 
@@ -407,7 +408,8 @@
 
     function buildHiddenSpots() {
       const spots = [];
-      const count = Math.floor(state.intensity * 20) + 12;
+      // 발견 빈도 상향: 기본 개수 증가
+      const count = Math.floor(state.intensity * 28) + 18;
       const m = 40;
       for (let i=0;i<count;i++) {
         spots.push({
@@ -632,9 +634,19 @@
       let type = 'gentle'; let color = info.color;
       if (resonance < 0.4) type = 'gentle'; else if (resonance < 0.7) type = 'understanding'; else { type = 'deep'; color = '#8E44AD'; }
       const examples = (messageExamples[state.emotion] || messageExamples.neutral)[type] || messageExamples.neutral.gentle;
-      const text = examples[Math.floor(Math.random() * examples.length)] || '당신의 감정을 이해하고 함께하겠습니다';
+      // 최근에 나온 문구 반복 방지: 최근 5개 내 중복 회피, 최대 10회 재시도 후 허용
+      let text = '';
+      const recent = state.recentMessages || [];
+      for (let tries = 0; tries < 10; tries++) {
+        text = examples[Math.floor(Math.random() * examples.length)] || '당신의 감정을 이해하고 함께하겠습니다';
+        if (!recent.includes(text)) break;
+      }
+      // 최근 메시지 큐 업데이트(최대 5개 유지)
+      const nextRecent = (recent.concat(text)).slice(-5);
+      state.recentMessages = nextRecent;
       addMessage(text, x, y, color, type);
-      setTimeout(() => creating = false, 50);
+      // 생성 쿨다운을 살짝 줄여 발견 빈도 상향
+      setTimeout(() => creating = false, 30);
     }
 
     function addMessage(text, x, y, color, type) {
@@ -649,18 +661,20 @@
       if (t.length > maxLen) {
         const mid = Math.floor(t.length / 2); t = t.substring(0, mid) + '\n' + t.substring(mid);
       }
-      let px = x; let py = y - 100; const padding = 150; const minDist = 200; let tries = 0; let ok = false;
+      // 메시지 밀도를 높이되 겹침은 완화
+      let px = x; let py = y - 100; const padding = 120; const minDist = 160; let tries = 0; let ok = false;
       while (!ok && tries < 10) {
         let coll = false; for (const p of state.activeMsgPositions) { if (Math.hypot(px - p.x, py - p.y) < minDist) { coll = true; break; } }
         if (!coll) ok = true; else {
           const ang = (tries * Math.PI * 2) / 8; const off = 80 + (tries * 20); px = x + Math.cos(ang) * off; py = y - 100 + Math.sin(ang) * off;
           if (px < padding) px = padding; if (px > state.screen.width - padding) px = state.screen.width - padding;
-          if (py < 120) py = 120; if (py > state.screen.height - 120) py = state.screen.height - 120;
+          if (py < 100) py = 100; if (py > state.screen.height - 100) py = state.screen.height - 100;
           tries++;
         }
       }
       const pos = { x: px, y: py, timestamp: Date.now() };
-      state.activeMsgPositions = state.activeMsgPositions.filter(p => Date.now() - p.timestamp < 5000).concat([pos]);
+      // 최근 포지션 유지 시간 단축해 더 자주 생성 가능
+      state.activeMsgPositions = state.activeMsgPositions.filter(p => Date.now() - p.timestamp < 3500).concat([pos]);
       state.floatingMessages.push({ text: t, x: px, y: py, opacity: 1, scale: 0, color });
     }
 
