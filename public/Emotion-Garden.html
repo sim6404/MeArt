@@ -105,7 +105,7 @@
   </div>
 
   <script>
-    const STATIC_GRASS = true; // 잔디 고정 모드
+    const STATIC_GRASS = false; // 잔디 자연스러운 흔들림 및 상호작용 활성화
     // ====== 유틸: 초기 데이터 수집 (배경/감정) ======
     function getQueryParam(name) {
       const params = new URLSearchParams(window.location.search);
@@ -186,7 +186,8 @@
       timerRunning: false,
       secondsExploring: 0,
       timerInterval: null,
-      foundMessages: []
+      foundMessages: [],
+      mouse: { x: 0, y: 0, inside: false }
     };
 
     const el = {
@@ -299,7 +300,11 @@
       el.fileInput = document.getElementById('fileInput');
 
       resizeCanvas();
-      window.addEventListener('resize', () => { state.screen = { width: window.innerWidth, height: window.innerHeight }; resizeCanvas(); /* 잔디 고정: 재생성하지 않음 */ });
+      window.addEventListener('resize', () => {
+        state.screen = { width: window.innerWidth, height: window.innerHeight };
+        resizeCanvas();
+        rebuildGrassAndSpots();
+      });
       state.canvas.addEventListener('mousemove', handleMouseMove);
       state.canvas.addEventListener('mouseleave', handleMouseLeave);
       state.canvas.addEventListener('click', handleCanvasClick);
@@ -468,8 +473,23 @@
           blade.angle = 0;
           blade.targetAngle = 0;
         }
+        // 마우스오버 시 좌우로 갈라지는 분리 오프셋 적용
+        let splitOffsetX = 0;
+        if (state.mouse.inside) {
+          const dx = blade.x - state.mouse.x;
+          const dy = blade.baseY - state.mouse.y;
+          const dist = Math.hypot(dx, dy);
+          const radius = 140; // 영향 반경
+          if (dist < radius) {
+            const strength = 1 - (dist / radius);
+            const direction = Math.sign(dx) || 0; // 좌우 방향
+            const maxSplit = 16; // 최대 좌우 분리 픽셀
+            splitOffsetX = direction * strength * maxSplit;
+          }
+        }
+
         ctx.save();
-        ctx.translate(blade.x, blade.baseY);
+        ctx.translate(blade.x + splitOffsetX, blade.baseY);
         ctx.rotate(blade.angle + natural);
         ctx.beginPath();
         ctx.moveTo(0,0);
@@ -552,9 +572,10 @@
     // ====== 상호작용 ======
     function handleMouseMove(e) {
       if (state.phase !== 'exploring') return;
-      if (STATIC_GRASS) return; // 고정 모드에서는 각도 변경 안 함
       const rect = state.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+      state.mouse = { x, y, inside: true };
+      if (STATIC_GRASS) return; // 고정 모드 시 각도 변경 생략
       const newGrass = state.grass.map(b => {
         const dist = Math.hypot(b.x - x, b.baseY - y);
         const radius = 100;
@@ -569,8 +590,10 @@
     }
 
     function handleMouseLeave() {
-      if (STATIC_GRASS) return;
-      state.grass = state.grass.map(b => ({ ...b, targetAngle: 0 }));
+      if (!STATIC_GRASS) {
+        state.grass = state.grass.map(b => ({ ...b, targetAngle: 0 }));
+      }
+      state.mouse.inside = false;
     }
 
     function handleCanvasClick(e) {
