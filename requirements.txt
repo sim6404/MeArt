@@ -54,10 +54,7 @@ scikit-image==0.25.2
 scipy==1.15.3
 six==1.17.0
 sympy==1.14.0
-tensorboard-data-server==0.7.2
-tensorflow-io-gcs-filesystem==0.31.0
 termcolor==3.1.0
-tf_keras==2.19.0
 tifffile==2025.5.10
 torch==2.7.1
 torchvision==0.22.1
