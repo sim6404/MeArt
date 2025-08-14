@@ -10,7 +10,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { execSync } = require('child_process');
 const crypto = require('crypto'); // 파일 해시 계산용
-const mime = require('mime'); // MIME 타입 감지용
+const mime = require('mime-types'); // MIME 타입 감지용 (CJS 호환)
 
 // 환경 변수 설정
 const PORT = process.env.PORT || 9000;
@@ -2486,7 +2486,7 @@ app.get('/uploads/:filename', (req, res) => {
         return res.status(404).send('File not found');
     }
     const ext = path.extname(filePath).toLowerCase();
-    const contentType = mime.getType(ext) || 'application/octet-stream';
+    const contentType = mime.lookup(filePath) || mime.lookup(ext) || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
