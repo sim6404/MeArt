@@ -5,7 +5,13 @@ import os
 import json
 import numpy as np
 import cv2
-import onnxruntime as ort
+
+try:
+    import onnxruntime as ort
+    HAS_ORT = True
+except Exception:
+    ort = None
+    HAS_ORT = False
 
 FERPLUS_EMOTIONS = [
     "neutral", "happiness", "surprise", "sadness",
@@ -51,48 +57,31 @@ def analyze_emotion(image_path):
         print(f"감정 분석 시작: {image_path}")
         print(f"모델 경로: {ONNX_MODEL}")
         print(f"모델 파일 존재: {os.path.exists(ONNX_MODEL)}")
-        
+
+        # onnxruntime/모델 폴백
+        if not HAS_ORT:
+            print("onnxruntime 미사용: 폴백 결과 반환")
+            return {"top_emotions": [], "emotion": "neutral", "confidence": 0.0, "error": "onnxruntime unavailable"}
+        if not os.path.exists(ONNX_MODEL):
+            print("ONNX 모델 없음: 폴백 결과 반환")
+            return {"top_emotions": [], "emotion": "neutral", "confidence": 0.0, "error": "model not found"}
+
         arr = preprocess_face(image_path)
         print(f"전처리 완료, 배열 형태: {arr.shape}")
-        
+
         session = ort.InferenceSession(ONNX_MODEL, providers=["CPUExecutionProvider"])
         input_name = session.get_inputs()[0].name
-        print(f"모델 로드 완료, 입력 이름: {input_name}")
-        
         outputs = session.run(None, {input_name: arr})
         scores = outputs[0][0]
         probs = softmax(scores)
         top_idx = probs.argsort()[-3:][::-1]
-        top_emotions = [
-            {
-                "emotion": FERPLUS_EMOTIONS[i],
-                "probability": float(probs[i]),
-                "percentage": float(probs[i] * 100)
-            }
-            for i in top_idx
-        ]
-        # angry/neutral 확률이 비슷하면 angry로 보정
+        top_emotions = [{"emotion": FERPLUS_EMOTIONS[i], "probability": float(probs[i]), "percentage": float(probs[i]*100)} for i in top_idx]
         main_idx = int(np.argmax(probs))
-        angry_idx = 4
-        neutral_idx = 0
+        angry_idx, neutral_idx = 4, 0
         if main_idx == neutral_idx and angry_idx in top_idx:
             if abs(probs[neutral_idx] - probs[angry_idx]) < 0.18 and probs[angry_idx] > 0.35:
                 main_idx = angry_idx
-        result = {
-            "top_emotions": top_emotions,
-            "emotion": FERPLUS_EMOTIONS[main_idx],
-            "confidence": float(probs[main_idx])
-        }
-        print(f"감정 분석 완료: {result['emotion']}")
-        return result
+        return {"top_emotions": top_emotions, "emotion": FERPLUS_EMOTIONS[main_idx], "confidence": float(probs[main_idx])}
     except Exception as e:
         print(f"감정 분석 중 오류 발생: {e}", file=sys.stderr)
         return {"emotion": "neutral", "confidence": 0.0, "error": str(e)}
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        image_path = sys.argv[1]
-        analysis_result = analyze_emotion(image_path)
-        print(json.dumps(analysis_result, ensure_ascii=False))
-    else:
-        print("사용법: python emotion_analysis.py <이미지_경로>")
