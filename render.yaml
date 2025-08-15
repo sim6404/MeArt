@@ -2,7 +2,7 @@ services:
   - type: web
     name: meart-app
     env: node
-    buildCommand: npm ci && pip3 install --no-cache-dir -r requirements.txt
+    buildCommand: npm ci && python3 -m pip install --user --no-cache-dir -r requirements.txt
     startCommand: node server.js
     plan: starter
     branch: main

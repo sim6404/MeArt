@@ -68,6 +68,10 @@ const MYART_DB = path.join(__dirname, 'myart.json');
 
 // 시스템 Python 사용 (가상환경 문제 해결)
 const pythonPath = process.env.PYTHON_PATH || 'python3';
+process.env.PYTHONPATH = [
+  process.env.PYTHONPATH || '',
+  '/opt/render/.local/lib/python3.*/site-packages'
+].filter(Boolean).join(':');
 
 // multer 업로드 파일 확장자 보존을 위한 storage 설정
 const storage = multer.diskStorage({
