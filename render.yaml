@@ -1,9 +1,8 @@
 services:
   - type: web
     name: meart-app
-    env: node
-    buildCommand: npm ci
-    startCommand: node server.js
+    env: docker
+    dockerfilePath: Dockerfile
     plan: free
     branch: main
     envVars:
