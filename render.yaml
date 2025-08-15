@@ -1,9 +1,10 @@
 services:
   - type: web
     name: meart-app
-    env: docker
-    dockerfilePath: Dockerfile
-    plan: free
+    env: node
+    buildCommand: npm ci && pip3 install --no-cache-dir -r requirements.txt
+    startCommand: node server.js
+    plan: starter
     branch: main
     envVars:
       - key: NODE_ENV
