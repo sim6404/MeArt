@@ -1,0 +1,10 @@
+[33mb76e2cf[m[33m ([m[1;36mHEAD[m[33m)[m fix(bg): robust fallback when rembg/Pillow unavailable; add size/type validation, auto output dir, JSONL progress logs, proper exit codes
+[33m147e7c7[m[33m ([m[1;31morigin/main[m[33m)[m Update u2net_remove_bg.py
+[33m1c44180[m Update requirements.txt
+[33m182b07a[m Update render.yaml
+[33m0ec8062[m chore(lfs): track large binary assets
+[33m93b2086[m fix(docker): pin onnxruntime==1.16.3 numpy==1.26.4; add libgomp1; safe fallback when onnxruntime unavailable
+[33m76f13d1[m build(render): install python deps in user site; set PYTHONPATH; fix ModuleNotFoundError: PIL (Pillow)
+[33m179e5b1[m build(render): install Python deps during Node build (pip3 install -r requirements.txt) to fix rembg import on Node runtime
+[33m5449c38[m feat(ai): add OpenCV GrabCut fallback when rembg is unavailable to prevent 500s on Render
+[33md41a604[m chore(render): switch to Docker deploy so Python deps (rembg) install; fix 500 ModuleNotFoundError: rembg
