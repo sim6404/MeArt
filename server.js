@@ -12,8 +12,8 @@ const { execSync } = require('child_process');
 const crypto = require('crypto'); // 파일 해시 계산용
 const mime = require('mime-types'); // MIME 타입 감지용 (CJS 호환)
 
-// 환경 변수 설정
-const PORT = process.env.PORT || 9000;
+// 환경 변수 설정 (Render 포트 우선)
+const PORT = process.env.PORT || 10000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret-change-in-production';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -408,26 +408,37 @@ const runPythonScript = (scriptName, args = [], timeout = 120000) => {
     });
 };
 
-// Python 실행 환경 확인 함수 추가
+// Python 실행 환경 확인 함수 (강화)
 function checkPythonEnvironment() {
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(pythonPath, ['--version']);
+        const pythonProcess = spawn(pythonPath, ['-c', 'import sys; print(f"Python {sys.version}"); import numpy, cv2, PIL; print("✅ 필수 패키지 확인 완료")']);
+        
+        let output = '';
+        let errorOutput = '';
         
         pythonProcess.stdout.on('data', (data) => {
-            console.log('Python 버전:', data.toString());
+            output += data.toString();
         });
 
         pythonProcess.stderr.on('data', (data) => {
-            console.error('Python 버전 확인 중 에러:', data.toString());
+            errorOutput += data.toString();
         });
 
         pythonProcess.on('close', (code) => {
             if (code === 0) {
+                console.log('🐍 Python 환경:', output.trim());
                 resolve();
             } else {
-                reject(new Error('Python이 설치되어 있지 않거나 실행할 수 없습니다.'));
+                console.error('❌ Python 환경 오류:', errorOutput);
+                reject(new Error(`Python 환경 오류: ${errorOutput}`));
             }
         });
+        
+        // 10초 타임아웃
+        setTimeout(() => {
+            pythonProcess.kill();
+            reject(new Error('Python 환경 확인 타임아웃'));
+        }, 10000);
     });
 }
 
