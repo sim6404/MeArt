@@ -2368,9 +2368,9 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 서버 시작 (에러 처리 강화)
-const server = app.listen(port, async () => {
-    console.log(`✅ 서버가 http://localhost:${port} 에서 실행 중입니다.`);
+// 서버 시작 (에러 처리 강화) - Docker 호환성을 위해 0.0.0.0 바인딩
+const server = app.listen(port, '0.0.0.0', async () => {
+    console.log(`✅ 서버가 http://0.0.0.0:${port} 에서 실행 중입니다.`);
     console.log('📁 업로드 디렉토리:', uploadDir);
     console.log('🐳 Docker 환경:', process.env.RENDER ? 'Render' : 'Local');
     

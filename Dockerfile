@@ -42,9 +42,9 @@ RUN echo "=== BG_image 디렉토리 확인 ===" && \
 # 포트 노출 (Render 동적 포트 지원)
 EXPOSE 10000
 
-# 헬스체크 추가 (Render 포트 우선)
+# 헬스체크 추가 (0.0.0.0 바인딩 대응)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD sh -c 'curl -fsS http://localhost:${PORT:-10000}/health || exit 1'
+    CMD sh -c 'curl -fsS http://0.0.0.0:${PORT:-10000}/health || curl -fsS http://localhost:${PORT:-10000}/health || exit 1'
 
 # 앱 실행
 CMD ["node", "server.js"]
