@@ -32,10 +32,11 @@ COPY . .
 # uploads 디렉토리 생성 및 권한 설정
 RUN mkdir -p uploads && chmod 755 uploads
 
-# 포트 노출
+# 포트 노출 (Render 동적 포트 지원)
+EXPOSE $PORT
 EXPOSE 9000
 
-# 헬스체크 추가
+# 헬스체크 추가 (Render 포트 우선)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD sh -c 'curl -fsS http://localhost:${PORT:-9000}/health || exit 1'
 
