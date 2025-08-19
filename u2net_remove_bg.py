@@ -29,7 +29,7 @@ def emit(event, data=None):
 
 print("=== PYTHON SCRIPT START ===", sys.argv)
 
-def process_image(input_path, output_path, alpha_matting=False, fg_threshold=160, bg_threshold=40, erode_size=1):
+def process_image(input_path, output_path, alpha_matting=True, fg_threshold=270, bg_threshold=10, erode_size=0):
     try:
         emit("start", {
             "input": input_path,

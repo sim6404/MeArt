@@ -29,8 +29,10 @@ RUN npm ci --only=production
 # 앱 소스 복사
 COPY . .
 
-# uploads 디렉토리 생성 및 권한 설정
-RUN mkdir -p uploads && chmod 755 uploads
+# BG_image 디렉토리 확인 및 권한 설정
+RUN ls -la BG_image/ || echo "BG_image directory not found" && \
+    mkdir -p uploads && chmod 755 uploads && \
+    chmod -R 755 BG_image/ || true
 
 # 포트 노출 (Render 동적 포트 지원)
 EXPOSE $PORT
