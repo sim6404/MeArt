@@ -2357,16 +2357,42 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 서버 시작
+// 서버 시작 (에러 처리 강화)
 const server = app.listen(port, async () => {
-    console.log(`서버가 http://localhost:${port} 에서 실행 중입니다.`);
-    console.log('업로드 디렉토리:', uploadDir);
+    console.log(`✅ 서버가 http://localhost:${port} 에서 실행 중입니다.`);
+    console.log('📁 업로드 디렉토리:', uploadDir);
+    console.log('🐳 Docker 환경:', process.env.RENDER ? 'Render' : 'Local');
+    
     try {
         await checkPythonEnvironment();
-        console.log('Python 환경 확인 완료');
+        console.log('🐍 Python 환경 확인 완료');
     } catch (error) {
-        console.error('Python 환경 확인 실패:', error);
+        console.error('⚠️ Python 환경 확인 실패 (계속 진행):', error.message);
     }
+    
+    // BG_image 디렉토리 확인
+    try {
+        const bgPath = path.join(__dirname, 'BG_image');
+        const files = fs.readdirSync(bgPath);
+        console.log(`🎨 BG_image 파일 수: ${files.filter(f => f.endsWith('.jpg')).length}개`);
+    } catch (error) {
+        console.error('⚠️ BG_image 디렉토리 확인 실패:', error.message);
+    }
+});
+
+// 서버 에러 처리
+server.on('error', (error) => {
+    console.error('❌ 서버 에러:', error);
+    process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM 수신, 서버 종료 중...');
+    server.close(() => {
+        console.log('✅ 서버 종료 완료');
+        process.exit(0);
+    });
 });
 
 // 포트 충돌 등 서버 에러 핸들링

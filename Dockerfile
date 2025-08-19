@@ -16,10 +16,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Python 의존성 설치
+# Python 의존성 설치 (최적화)
 COPY requirements.txt ./requirements.txt
-RUN python3 -m pip install --no-cache-dir -r requirements.txt && \
-    python3 -c "import cv2; import numpy; import PIL; print('✅ Python dependencies OK')" || \
+RUN python3 -m pip install --no-cache-dir --timeout=300 -r requirements.txt && \
+    python3 -c "import cv2; import numpy; import PIL; import rembg; print('✅ Python dependencies OK')" || \
     echo "⚠️ Python dependencies check failed"
 
 # package.json 및 package-lock.json 복사
