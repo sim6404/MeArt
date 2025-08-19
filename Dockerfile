@@ -31,10 +31,13 @@ RUN npm ci --only=production
 # 앱 소스 복사
 COPY . .
 
-# BG_image 디렉토리 확인 및 권한 설정
-RUN ls -la BG_image/ || echo "BG_image directory not found" && \
+# BG_image 디렉토리 명시적 복사 및 확인
+COPY BG_image/ ./BG_image/
+RUN echo "=== BG_image 디렉토리 확인 ===" && \
+    ls -la BG_image/ && \
+    echo "BG_image 파일 수: $(find BG_image/ -name '*.jpg' | wc -l)" && \
     mkdir -p uploads && chmod 755 uploads && \
-    chmod -R 755 BG_image/ || true
+    chmod -R 755 BG_image/
 
 # 포트 노출 (Render 동적 포트 지원)
 EXPOSE $PORT
