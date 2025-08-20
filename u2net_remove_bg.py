@@ -126,38 +126,63 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
         img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
         h, w, _ = img.shape
         
-        # 더 보수적인 직사각형 설정 (셔츠/의복 보존을 위해)
-        rect_margin_w = max(20, w // 8)  # 더 넉넉한 여백
-        rect_margin_h = max(20, h // 6)  # 상의 보존을 위해 위쪽 여백 증가
+        # 매우 보수적인 직사각형 설정 (의복 완전 보존을 위해)
+        rect_margin_w = max(30, w // 6)  # 훨씬 더 넉넉한 좌우 여백
+        rect_margin_h = max(40, h // 4)  # 상의/하의 완전 보존을 위한 큰 상하 여백
         rect = (rect_margin_w, rect_margin_h, w - 2 * rect_margin_w, h - 2 * rect_margin_h)
         mask = np.zeros((h, w), np.uint8)
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
         
         try:
-            # 더 많은 반복으로 정밀도 향상 (의복 보존)
-            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 8, cv2.GC_INIT_WITH_RECT)
-            print("GrabCut 알고리즘 적용 성공 (8회 반복)")
+            # 의복 보존을 위한 더 보수적 GrabCut 설정
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+            # 추가 정밀화 (의복 영역 보호)
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 3, cv2.GC_EVAL)
+            print("GrabCut 알고리즘 적용 성공 (5+3회 단계별 처리)")
         except Exception as ex:
-            print(f"GrabCut 실패, 보수적 임계값 대체로 전환: {ex}")
-            # 더 보수적인 임계값 처리 (의복 보존)
+            print(f"GrabCut 실패, 매우 보수적 임계값 대체로 전환: {ex}")
+            # 의복 보존을 위한 매우 보수적인 임계값 처리
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            # Otsu 대신 더 보수적인 임계값 사용
-            _, mask = cv2.threshold(gray, 120, 1, cv2.THRESH_BINARY)
+            # 더욱 높은 임계값으로 의복 보존
+            _, mask = cv2.threshold(gray, 140, 1, cv2.THRESH_BINARY)
         
-        # 전경 마스크 생성 (더 보수적 - 의복 보존)
-        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        # 전경 마스크 생성 (매우 보수적 - 의복 완전 보존)
+        # GrabCut 결과에서 확실한 전경(1)과 가능한 전경(3)을 모두 포함
+        mask2 = np.where((mask == 1) | (mask == 3), 1, 0).astype('uint8')
         
-        # 의복 보존을 위한 보다 부드러운 모폴로지 처리
-        kernel_size = max(1, erode_size // 2)  # 더 작은 커널
-        kernel = np.ones((kernel_size, kernel_size), np.uint8)
-        # 침식 대신 닫힘 연산으로 의복 내부 구멍 채우기
-        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=2)
-        # 더 부드러운 가우시안 블러
-        mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=2.0, sigmaY=2.0)
+        # 의복 완전 보존을 위한 매우 부드러운 처리
+        kernel_size = max(1, erode_size)  # 원래 크기 유지
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
         
-        # 알파 채널 생성
+        # 1단계: 팽창으로 의복 영역 확장 (투명화 방지)
+        mask2 = cv2.dilate(mask2, kernel, iterations=1)
+        
+        # 2단계: 닫힘 연산으로 의복 내부 구멍 채우기
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=3)
+        
+        # 3단계: 매우 부드러운 가우시안 블러 (가장자리만 부드럽게)
+        mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=1.0, sigmaY=1.0)
+        
+        # 알파 채널 생성 (의복 보존 강화)
         alpha = (mask2 * 255).astype('uint8')
+        
+        # 의복 영역 추가 보호: 중앙 영역 강화
+        center_y, center_x = h // 2, w // 2
+        protection_h = h // 3  # 상체 영역
+        protection_w = w // 3  # 중앙 영역
+        
+        # 중앙 상체 영역의 알파값 강화 (투명화 방지)
+        y1 = max(0, center_y - protection_h // 2)
+        y2 = min(h, center_y + protection_h // 2)
+        x1 = max(0, center_x - protection_w // 2)
+        x2 = min(w, center_x + protection_w // 2)
+        
+        # 중앙 영역의 낮은 알파값을 보정 (의복 보존)
+        center_region = alpha[y1:y2, x1:x2]
+        center_region = np.maximum(center_region, (center_region * 1.3).astype('uint8'))
+        alpha[y1:y2, x1:x2] = center_region
+        
         bgr = img
         rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGBA)
         rgba[:, :, 3] = alpha
