@@ -284,31 +284,9 @@ def main():
         # 이미지 로드 (알파 채널 보존)
         orig_img = Image.open(input_path).convert('RGBA')
         
-        # TensorFlow Neural Style Transfer 시도
-        if TENSORFLOW_AVAILABLE and style_path and os.path.exists(style_path):
-            try:
-                print("Neural Style Transfer 시도 중...")
-                content_image = load_img(input_path)
-                style_image = load_img(style_path)
-                
-                # 캐시된 모델 사용
-                hub_model = get_hub_model()
-                
-                # 스타일 트랜스퍼 실행
-                stylized_image = hub_model(tf.constant(content_image), tf.constant(style_image))[0]
-                
-                # 결과 저장
-                out_img = tensor_to_image(stylized_image)
-                print("Neural Style Transfer 완료!")
-                
-            except Exception as e:
-                print(f"Neural Style Transfer 실패: {e}")
-                print("PIL 기반 브러시 효과로 대체됩니다...")
-                out_img = apply_advanced_brush_effect_pil(orig_img)
-        else:
-            # PIL 기반 브러시 효과 사용
-            print("PIL 기반 브러시 효과 사용...")
-            out_img = apply_advanced_brush_effect_pil(orig_img)
+        # PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용
+        print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용...")
+        out_img = apply_advanced_brush_effect_pil(orig_img)
         
         # 알파 채널(투명도) 보존 및 투명 영역 보호
         orig = Image.open(input_path).convert('RGBA')

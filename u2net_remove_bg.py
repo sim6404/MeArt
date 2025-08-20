@@ -134,54 +134,40 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
         
-        try:
-            # 극도로 보수적인 GrabCut 설정 (인물 완전 보존)
-            # 1단계: 초기 분할 (매우 보수적)
-            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 3, cv2.GC_INIT_WITH_RECT)
-            
-            # 2단계: 마스크 수동 조정 (중앙 영역 강제 전경 설정)
-            center_y, center_x = h // 2, w // 2
-            safe_h, safe_w = h * 2 // 3, w * 2 // 3  # 더 큰 안전 영역
-            y1 = max(0, center_y - safe_h // 2)
-            y2 = min(h, center_y + safe_h // 2)
-            x1 = max(0, center_x - safe_w // 2)
-            x2 = min(w, center_x + safe_w // 2)
-            
-            # 중앙 영역을 강제로 확실한 전경(1)으로 설정
-            mask[y1:y2, x1:x2] = cv2.GC_FGD  # 확실한 전경
-            
-            # 3단계: 재처리 (보정된 마스크로)
-            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 2, cv2.GC_EVAL)
-            print("극도 보수적 GrabCut 적용 성공 (중앙 영역 강제 보호)")
-            
-        except Exception as ex:
-            print(f"GrabCut 실패, 안전한 중앙 영역 보존 모드로 전환: {ex}")
-            # 실패 시 중앙 영역만 보존하는 안전 모드
-            mask = np.zeros((h, w), np.uint8)
-            center_y, center_x = h // 2, w // 2
-            safe_h, safe_w = h * 3 // 4, w * 3 // 4
-            y1 = max(0, center_y - safe_h // 2)
-            y2 = min(h, center_y + safe_h // 2)
-            x1 = max(0, center_x - safe_w // 2)
-            x2 = min(w, center_x + safe_w // 2)
-            mask[y1:y2, x1:x2] = 1  # 중앙 영역만 전경으로 설정
+        # 간단하고 확실한 배경 제거: 중앙 영역 기반 마스크 생성
+        print("간단하고 확실한 중앙 영역 기반 배경 제거 시작...")
         
-        # 극도로 보수적인 마스크 생성 (머리/셔츠 완전 보존)
-        # 모든 불확실한 영역을 전경으로 처리
-        mask2 = np.where((mask == 1) | (mask == 3) | (mask == 2), 1, 0).astype('uint8')
-        
-        # 추가 안전장치: 중앙 80% 영역 강제 보호
+        # 중앙 영역 계산 (85% 영역을 전경으로 보존)
         center_y, center_x = h // 2, w // 2
-        ultra_safe_h, ultra_safe_w = h * 4 // 5, w * 4 // 5  # 80% 영역
-        y1 = max(0, center_y - ultra_safe_h // 2)
-        y2 = min(h, center_y + ultra_safe_h // 2)
-        x1 = max(0, center_x - ultra_safe_w // 2)
-        x2 = min(w, center_x + ultra_safe_w // 2)
+        keep_h, keep_w = int(h * 0.85), int(w * 0.85)  # 85% 영역 보존
         
-        # 중앙 80% 영역을 무조건 전경으로 설정
+        y1 = max(0, center_y - keep_h // 2)
+        y2 = min(h, center_y + keep_h // 2)
+        x1 = max(0, center_x - keep_w // 2)
+        x2 = min(w, center_x + keep_w // 2)
+        
+        # 마스크 생성: 중앙 85% 영역은 전경, 나머지는 배경
+        mask = np.zeros((h, w), np.uint8)
+        mask[y1:y2, x1:x2] = 1  # 중앙 영역을 전경으로 설정
+        
+        print(f"중앙 영역 보존: {keep_w}x{keep_h} ({keep_w/w*100:.1f}% x {keep_h/h*100:.1f}%)")
+        
+        # 선택적 GrabCut 적용 (실패해도 괜찮음)
+        try:
+            bgdModel = np.zeros((1, 65), np.float64)
+            fgdModel = np.zeros((1, 65), np.float64)
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 2, cv2.GC_INIT_WITH_RECT)
+            print("추가 GrabCut 정제 성공")
+        except Exception as ex:
+            print(f"GrabCut 정제 실패하지만 계속 진행: {ex}")
+        
+        # 간단한 마스크 처리: 기본적으로 중앙 영역은 모두 보존
+        mask2 = mask.copy().astype('uint8')
+        
+        # 추가 보호: 중앙 85% 영역 다시 한번 확실히 설정
         mask2[y1:y2, x1:x2] = 1
         
-        print(f"극도 보수적 마스크 생성: 중앙 {ultra_safe_w}x{ultra_safe_h} 영역 완전 보호")
+        print("간단하고 확실한 마스크 생성 완료")
         
         # 의복 완전 보존을 위한 매우 부드러운 처리
         kernel_size = max(1, erode_size)  # 원래 크기 유지
