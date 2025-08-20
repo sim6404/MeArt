@@ -16,25 +16,9 @@ from PIL import Image, ImageFilter, ImageEnhance
 import os
 import gc
 
-# TensorFlow 관련 import 및 초기화 (오류 처리 포함)
-try:
-    import tensorflow as tf
-    import tensorflow_hub as hub
-    
-    # TensorFlow 메모리 최적화 설정 (조건부)
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        try:
-            tf.config.experimental.set_memory_growth(gpus[0], True)
-        except RuntimeError:
-            pass
-    
-    TENSORFLOW_AVAILABLE = True
-    print("TensorFlow 및 TensorFlow Hub 로드 완료")
-except ImportError as e:
-    print(f"TensorFlow 로드 실패: {e}")
-    print("PIL 기반 브러시 효과로 대체됩니다.")
-    TENSORFLOW_AVAILABLE = False
+# Render 환경 호환성을 위해 TensorFlow 비활성화
+TENSORFLOW_AVAILABLE = False
+print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용")
 
 # 전역 변수로 모델 캐시
 _hub_model = None
@@ -268,17 +252,8 @@ def main():
     input_path = sys.argv[1]
     output_path = sys.argv[2]
     
-    # 스타일 경로 설정 (TensorFlow 사용 시에만)
-    style_path = None
-    if TENSORFLOW_AVAILABLE:
-        if len(sys.argv) >= 4:
-            style_path = sys.argv[3]
-        else:
-            # 기본 스타일 이미지 (BG_image 폴더 내 임의의 유화 이미지)
-            style_path = os.path.join(os.path.dirname(__file__), 'BG_image', 'the_bathers_1951.5.1.jpg')
-            if not os.path.exists(style_path):
-                print('기본 스타일 이미지가 없습니다. PIL 기반 효과로 대체됩니다.')
-                style_path = None
+    # PIL 기반 브러시 효과 전용 (스타일 이미지 불필요)
+    print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 시작")
     
     try:
         # 이미지 로드 (알파 채널 보존)

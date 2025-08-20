@@ -8,7 +8,13 @@ import json
 # 필요한 패키지 임포트 (필수 의존성)
 import numpy as np
 import cv2
-import psutil  # 메모리 모니터링
+
+# psutil 선택적 import
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
 
 # Pillow는 지연 임포트하여 미설치 환경에서도 폴백 가능하게 처리
 try:
@@ -32,9 +38,14 @@ print("=== PYTHON SCRIPT START ===", sys.argv)
 
 def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180, bg_threshold=50, erode_size=1):
     try:
-        # 메모리 사용량 체크
-        memory_info = psutil.virtual_memory()
-        print(f"시작 메모리: 사용률 {memory_info.percent}%, 사용량 {memory_info.used/1024/1024:.1f}MB")
+        # 메모리 사용량 체크 (선택적)
+        if HAS_PSUTIL:
+            memory_info = psutil.virtual_memory()
+            print(f"시작 메모리: 사용률 {memory_info.percent}%, 사용량 {memory_info.used/1024/1024:.1f}MB")
+            memory_percent = memory_info.percent
+        else:
+            print("psutil 없음, 메모리 모니터링 생략")
+            memory_percent = 0.0
         
         emit("start", {
             "input": input_path,
@@ -44,7 +55,7 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
             "bg_threshold": int(bg_threshold),
             "erode_size": int(erode_size),
             "has_pil": HAS_PIL,
-            "memory_percent": memory_info.percent
+            "memory_percent": memory_percent
         })
         
         # 입력 파일 존재 확인
