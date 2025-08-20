@@ -5,3 +5,4 @@ numpy>=1.21.6,<2.0.0
 requests==2.32.4
 PyMatting==1.1.14
 rembg==2.0.50
+psutil==5.9.8
