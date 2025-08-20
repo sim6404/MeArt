@@ -121,34 +121,45 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
             else:
                 img_rgb = cv2.cvtColor(buf, cv2.COLOR_BGR2RGB)
             np_img = img_rgb
-            img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
-            h, w, _ = img.shape
-            # 화면 경계에서 약간 안쪽으로 직사각형 초기화 (피사체를 포함하도록 여유)
-            rect_margin_w = max(10, w // 20)
-            rect_margin_h = max(10, h // 20)
-            rect = (rect_margin_w, rect_margin_h, w - 2 * rect_margin_w, h - 2 * rect_margin_h)
-            mask = np.zeros((h, w), np.uint8)
-            bgdModel = np.zeros((1, 65), np.float64)
-            fgdModel = np.zeros((1, 65), np.float64)
-            try:
-                cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
-            except Exception as ex:
-                print(f"GrabCut 실패, 단순 임계값 대체로 전환: {ex}")
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                _, mask = cv2.threshold(gray, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            # 전경 마스크 생성
-            mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
-            # 모폴로지로 가장자리 부드럽게
-            kernel = np.ones((erode_size, erode_size), np.uint8)
-            mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
-            mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=1.5, sigmaY=1.5)
-            alpha = (mask2 * 255).astype('uint8')
-            bgr = img
-            rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGBA)
-            rgba[:, :, 3] = alpha
-            result_image = Image.fromarray(rgba) if HAS_PIL else rgba
-            print("배경 제거 완료(OpenCV 대체).")
-            emit("remove_bg", {"engine": "opencv_grabcut"})
+        
+        # OpenCV GrabCut 처리 (PIL/NumPy 공통)
+        img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
+        h, w, _ = img.shape
+        
+        # 화면 경계에서 약간 안쪽으로 직사각형 초기화 (피사체를 포함하도록 여유)
+        rect_margin_w = max(10, w // 20)
+        rect_margin_h = max(10, h // 20)
+        rect = (rect_margin_w, rect_margin_h, w - 2 * rect_margin_w, h - 2 * rect_margin_h)
+        mask = np.zeros((h, w), np.uint8)
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+        
+        try:
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+            print("GrabCut 알고리즘 적용 성공")
+        except Exception as ex:
+            print(f"GrabCut 실패, 단순 임계값 대체로 전환: {ex}")
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, mask = cv2.threshold(gray, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # 전경 마스크 생성
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        
+        # 모폴로지로 가장자리 부드럽게
+        kernel = np.ones((erode_size, erode_size), np.uint8)
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
+        mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=1.5, sigmaY=1.5)
+        
+        # 알파 채널 생성
+        alpha = (mask2 * 255).astype('uint8')
+        bgr = img
+        rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGBA)
+        rgba[:, :, 3] = alpha
+        
+        # 결과 이미지 생성
+        result_image = Image.fromarray(rgba) if HAS_PIL else rgba
+        print("배경 제거 완료(OpenCV GrabCut).")
+        emit("remove_bg", {"engine": "opencv_grabcut"})
         print("엣지 회색라인 제거 및 부드러운 경계 처리 완료.")
         print("결과 저장 중...")
         # 출력 디렉터리 생성 보장
