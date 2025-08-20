@@ -1003,7 +1003,7 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         let emotionData = null;
         try {
             console.log('🔍 감정 분석 요청:', req.file.path);
-            const rawOutput = await runPythonScript('emotion_analysis.py', [req.file.path]);
+            const rawOutput = await runPythonScript('simple_emotion.py', [req.file.path]);
             console.log('📊 감정 분석 결과:', rawOutput);
             
             // JSON 파싱: 마지막 줄이 JSON 결과
@@ -1084,7 +1084,7 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
             console.log('기존 nobg 파일 크기:', nobgStats.size, 'bytes');
         } else {
             console.log('🔄 새로운 배경 제거 실행');
-            await runPythonScript('u2net_remove_bg.py', [inputPath, nobgPath, 'true', '180', '50', '1']);
+            await runPythonScript('simple_bg_remove.py', [inputPath, nobgPath]);
             await fs.promises.access(nobgPath, fs.constants.F_OK).catch(() => { throw new Error('배경 제거 실패'); });
             
             console.log('배경 제거 완료:', nobgPath);
@@ -1387,13 +1387,9 @@ app.post('/api/apply-brush-effect', async (req, res) => {
                 
                 try {
                     // 배경 제거 재실행
-                    await runPythonScript('u2net_remove_bg.py', [
+                    await runPythonScript('simple_bg_remove.py', [
                         originalFile,
-                        nobgAbsPath,
-                        'true',  // alpha_matting
-                        '180',   // fg_threshold
-                        '50',    // bg_threshold  
-                        '1'      // erode_size
+                        nobgAbsPath
                     ]);
                     
                     // 재생성된 파일 확인
@@ -1911,7 +1907,7 @@ app.post('/api/brush-composite', upload.single('image'), async (req, res) => {
         const brushPath = optimizedInputPath.replace(ext, '_brush.png');
         const outputPath = path.join(uploadDir, `${baseName}_final_${Date.now()}.png`);
         // 1. 배경 제거 (Python 직접 실행)
-        await runPythonScript('u2net_remove_bg.py', [optimizedInputPath, nobgPath, 'true', '180', '50', '1']);
+        await runPythonScript('simple_bg_remove.py', [optimizedInputPath, nobgPath]);
         await fs.promises.access(nobgPath, fs.constants.F_OK).catch(() => { throw new Error('배경 제거 실패'); });
         
         // 2. 브러쉬 효과 (Python 직접 실행)
