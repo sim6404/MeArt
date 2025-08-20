@@ -1,8 +1,5 @@
-onnxruntime==1.16.3
 opencv-python-headless==4.10.0.84
 Pillow==10.4.0
 numpy>=1.21.6,<2.0.0
 requests==2.32.4
-PyMatting==1.1.14
-rembg==2.0.50
 psutil==5.9.8

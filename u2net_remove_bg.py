@@ -98,39 +98,29 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
             h, w = input_image.shape[:2]  # type: ignore
             print(f"이미지 크기(NumPy): {(w, h)}, 모드: RGBA(가정)")
         
-        # rembg 사용 시도 → 실패 시 OpenCV GrabCut 대체 경로
+        # Render Free tier 메모리 제약으로 인해 OpenCV GrabCut만 사용 (rembg 비활성화)
         result_image = None
-        try:
-            # Pillow가 없으면 rembg는 사용하지 않음
-            if not HAS_PIL:
-                raise ImportError("Pillow 미설치로 rembg 경로 생략")
-            from rembg import remove as rembg_remove, new_session
-            # 경량 모델 사용 (silueta: ~25MB vs u2net: 176MB)
-            session = new_session('silueta')
-            output_image = rembg_remove(
-                input_image,  # type: ignore
-                session=session,
-                alpha_matting=alpha_matting,
-                fg_threshold=fg_threshold,
-                bg_threshold=bg_threshold,
-                erode_structure_size=erode_size
-            )
-            print(f"배경 제거 완료(rembg-silueta). 결과 이미지 크기: {output_image.size}")
-            emit("remove_bg", {"engine": "rembg-silueta"})
-            result_image = output_image
-        except ImportError as e:
-            print(f"rembg 미설치로 OpenCV GrabCut 대체 경로 수행: {e}")
-            # OpenCV 기반 대체 배경 제거
-            if HAS_PIL:
-                np_img = np.array(input_image.convert('RGB'))  # type: ignore
+        
+        # 메모리 절약을 위해 rembg 완전 비활성화, OpenCV GrabCut 전용 모드
+        print("🔧 메모리 절약 모드: OpenCV GrabCut 전용 (rembg 비활성화)")
+        
+        # 배경 제거 전 메모리 상태 체크
+        memory_before = psutil.virtual_memory()
+        print(f"배경 제거 전 메모리: {memory_before.percent}% ({memory_before.used/1024/1024:.1f}MB)")
+        
+        emit("remove_bg", {"engine": "opencv-grabcut-only", "reason": "memory-optimization", "memory_before": memory_before.percent})
+        
+        # OpenCV 기반 배경 제거
+        if HAS_PIL:
+            np_img = np.array(input_image.convert('RGB'))  # type: ignore
+        else:
+            # input_image가 NumPy인 경우 이미 RGBA 또는 BGR일 수 있음 → RGB 보장
+            buf = input_image  # type: ignore
+            if buf.shape[2] == 4:
+                img_rgb = cv2.cvtColor(buf, cv2.COLOR_RGBA2RGB)
             else:
-                # input_image가 NumPy인 경우 이미 RGBA 또는 BGR일 수 있음 → RGB 보장
-                buf = input_image  # type: ignore
-                if buf.shape[2] == 4:
-                    img_rgb = cv2.cvtColor(buf, cv2.COLOR_RGBA2RGB)
-                else:
-                    img_rgb = cv2.cvtColor(buf, cv2.COLOR_BGR2RGB)
-                np_img = img_rgb
+                img_rgb = cv2.cvtColor(buf, cv2.COLOR_BGR2RGB)
+            np_img = img_rgb
             img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
             h, w, _ = img.shape
             # 화면 경계에서 약간 안쪽으로 직사각형 초기화 (피사체를 포함하도록 여유)
