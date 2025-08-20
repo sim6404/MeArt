@@ -16,33 +16,82 @@ from PIL import Image, ImageFilter, ImageEnhance
 import os
 import gc
 
-# Render 환경 호환성을 위해 TensorFlow 비활성화
-TENSORFLOW_AVAILABLE = False
-print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용")
+# TensorFlow Neural Style Transfer 복원 (메모리 최적화)
+try:
+    import tensorflow as tf
+    import tensorflow_hub as hub
+    
+    # TensorFlow 메모리 최적화 설정
+    tf.config.experimental.enable_memory_growth = True
+    
+    # GPU 메모리 제한 (Render 환경 대응)
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            tf.config.experimental.set_memory_growth(gpus[0], True)
+            tf.config.experimental.set_virtual_device_configuration(
+                gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=512)]
+            )
+        except RuntimeError as e:
+            print(f"GPU 설정 실패: {e}")
+    
+    # CPU 스레드 제한 (메모리 절약)
+    tf.config.threading.set_intra_op_parallelism_threads(2)
+    tf.config.threading.set_inter_op_parallelism_threads(2)
+    
+    TENSORFLOW_AVAILABLE = True
+    print("✅ TensorFlow Neural Style Transfer 사용 가능")
+    
+except ImportError as e:
+    print(f"TensorFlow 로드 실패: {e}")
+    print("PIL 기반 브러시 효과로 대체됩니다.")
+    TENSORFLOW_AVAILABLE = False
+except Exception as e:
+    print(f"TensorFlow 설정 실패: {e}")
+    print("PIL 기반 브러시 효과로 대체됩니다.")
+    TENSORFLOW_AVAILABLE = False
 
 # 전역 변수로 모델 캐시
 _hub_model = None
 
 def get_hub_model():
-    """모델을 한 번만 로드하고 캐시 (네트워크 오류 처리 포함)"""
+    """메모리 최적화된 TensorFlow Hub 모델 로드"""
     global _hub_model
     if _hub_model is None:
         try:
-            print("TensorFlow Hub 모델 다운로드 중... (최초 실행 시 시간이 걸릴 수 있습니다)")
-            _hub_model = hub.load('https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2')
-            print("TensorFlow Hub 모델 로드 완료")
+            print("🎨 TensorFlow Hub Neural Style Transfer 모델 로드 중...")
+            print("⏰ 최초 실행 시 모델 다운로드로 시간이 걸릴 수 있습니다")
+            
+            # 메모리 정리
+            gc.collect()
+            
+            # 경량 모델 사용 (256x256)
+            model_url = 'https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2'
+            _hub_model = hub.load(model_url)
+            
+            print("✅ TensorFlow Hub Neural Style Transfer 모델 로드 완료")
+            
+            # 모델 로드 후 메모리 정리
+            gc.collect()
+            
         except Exception as e:
-            print(f"TensorFlow Hub 모델 로드 실패: {e}")
-            print("네트워크 연결을 확인하거나 PIL 기반 효과로 대체됩니다.")
+            print(f"❌ TensorFlow Hub 모델 로드 실패: {e}")
+            print("🔄 PIL 기반 고급 효과로 대체됩니다")
             raise e
     return _hub_model
 
-def load_img(path, max_dim=512):  # 최대 크기를 512로 증가하여 해상도 향상
+def load_img(path, max_dim=384):  # Render 메모리 최적화를 위해 384로 제한
+    """메모리 최적화된 이미지 로드"""
     img = Image.open(path).convert('RGB')
     img = np.array(img)
     h, w = img.shape[:2]
+    
+    # 메모리 절약을 위한 크기 제한
     scale = max_dim / max(h, w)
     new_shape = (int(h * scale), int(w * scale))
+    
+    print(f"🖼️ 이미지 크기 조정: {w}x{h} → {new_shape[1]}x{new_shape[0]}")
+    
     img = Image.fromarray(img).resize((new_shape[1], new_shape[0]), Image.LANCZOS)
     img = np.array(img).astype(np.float32) / 255.0
     img = np.expand_dims(img, axis=0)
@@ -252,16 +301,79 @@ def main():
     input_path = sys.argv[1]
     output_path = sys.argv[2]
     
-    # PIL 기반 브러시 효과 전용 (스타일 이미지 불필요)
-    print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 시작")
+    # 스타일 이미지 설정 (Neural Style Transfer용)
+    style_path = None
+    if TENSORFLOW_AVAILABLE:
+        if len(sys.argv) >= 4:
+            style_path = sys.argv[3]
+        else:
+            # 기본 스타일 이미지 (유화 스타일)
+            style_candidates = [
+                'BG_image/the_bathers_1951.5.1.jpg',
+                'BG_image/van_gogh_starry_night.jpg',
+                'BG_image/monet_water_lilies.jpg'
+            ]
+            for candidate in style_candidates:
+                candidate_path = os.path.join(os.path.dirname(__file__), candidate)
+                if os.path.exists(candidate_path):
+                    style_path = candidate_path
+                    print(f"🎨 기본 유화 스타일 이미지 사용: {candidate}")
+                    break
+            
+            if not style_path:
+                print("⚠️ 기본 스타일 이미지를 찾을 수 없습니다. PIL 효과로 대체됩니다.")
+    
+    print(f"🚀 브러시 효과 시작 - TensorFlow: {TENSORFLOW_AVAILABLE}, 스타일: {bool(style_path)}")
     
     try:
         # 이미지 로드 (알파 채널 보존)
         orig_img = Image.open(input_path).convert('RGBA')
         
-        # PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용
-        print("PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용...")
-        out_img = apply_advanced_brush_effect_pil(orig_img)
+        # TensorFlow Neural Style Transfer 시도
+        if TENSORFLOW_AVAILABLE and style_path and os.path.exists(style_path):
+            try:
+                print("🎨 TensorFlow Neural Style Transfer 시작...")
+                
+                # 메모리 정리
+                gc.collect()
+                
+                # 이미지 로드 (메모리 최적화)
+                print("📥 콘텐츠 이미지 로드 중...")
+                content_image = load_img(input_path, max_dim=384)
+                
+                print("🎭 스타일 이미지 로드 중...")
+                style_image = load_img(style_path, max_dim=256)  # 스타일은 더 작게
+                
+                # TensorFlow Hub 모델 사용
+                print("🧠 Neural Style Transfer 모델 적용 중...")
+                hub_model = get_hub_model()
+                
+                # TensorFlow 텐서로 변환
+                content_tensor = tf.convert_to_tensor(content_image)
+                style_tensor = tf.convert_to_tensor(style_image)
+                
+                # 스타일 트랜스퍼 실행
+                stylized_image = hub_model(content_tensor, style_tensor)[0]
+                
+                # 결과 이미지 변환
+                out_img = tensor_to_image(stylized_image)
+                print("✅ TensorFlow Neural Style Transfer 완료!")
+                
+                # 메모리 정리
+                del content_image, style_image, content_tensor, style_tensor, stylized_image
+                gc.collect()
+                
+            except Exception as e:
+                print(f"❌ TensorFlow Neural Style Transfer 실패: {e}")
+                print("🔄 PIL 기반 고급 브러시 효과로 대체됩니다...")
+                out_img = apply_advanced_brush_effect_pil(orig_img)
+        else:
+            # PIL 기반 브러시 효과 사용
+            if not TENSORFLOW_AVAILABLE:
+                print("🎨 TensorFlow 없음 - PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용")
+            else:
+                print("🎨 스타일 이미지 없음 - PIL 기반 Neural Style Transfer 스타일 브러시 효과 사용")
+            out_img = apply_advanced_brush_effect_pil(orig_img)
         
         # 알파 채널(투명도) 보존 및 투명 영역 보호
         orig = Image.open(input_path).convert('RGBA')

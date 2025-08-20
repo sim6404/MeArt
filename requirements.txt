@@ -5,3 +5,5 @@ requests==2.32.4
 psutil==5.9.8
 scikit-image==0.21.0
 onnxruntime==1.16.3
+tensorflow-cpu==2.13.1
+tensorflow-hub==0.14.0
