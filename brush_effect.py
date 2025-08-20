@@ -72,8 +72,8 @@ def tensor_to_image(tensor):
     return Image.fromarray(tensor)
 
 def apply_advanced_brush_effect_pil(image):
-    """고품질 PIL 기반 브러시 효과 (TensorFlow 대체용) - 알파 채널 보존"""
-    print("고급 PIL 브러시 효과 적용 중...")
+    """Neural Style Transfer 스타일 고품질 브러시 효과 - 알파 채널 보존"""
+    print("Neural Style Transfer 스타일 브러시 효과 적용 중...")
     
     # 0. 알파 채널 보존을 위해 RGBA로 변환
     has_alpha = image.mode == 'RGBA'
@@ -132,16 +132,39 @@ def apply_advanced_brush_effect_pil(image):
     enhancer = ImageEnhance.Sharpness(image)
     image = enhancer.enhance(0.6)  # 극도로 부드럽게 (0.7 → 0.6으로 더 감소)
     
-    # 7. 고급 노이즈 효과 (유화 브러시 터치 느낌)
+    # 7. Neural Style Transfer 스타일 텍스처 효과
     img_array = np.array(image)
     
-    # 노이즈 패턴 생성 (극도로 미세한 유화 느낌, 얼룩덜룩함 최소화)
-    noise_pattern = np.random.normal(0, 0.4, img_array.shape[:2])  # 0.8 → 0.4로 대폭 감소
-    noise_pattern = np.clip(noise_pattern, -1, 1)  # -2,2 → -1,1로 대폭 감소
-    
-    # RGB 채널별로 노이즈 적용
-    for i in range(3):
-        img_array[:, :, i] = np.clip(img_array[:, :, i] + noise_pattern, 0, 255)
+    # 유화 브러시 스트로크 시뮬레이션
+    try:
+        from skimage import filters, segmentation, morphology
+        from skimage.util import img_as_float, img_as_ubyte
+        
+        # 이미지를 float로 변환
+        img_float = img_as_float(img_array)
+        
+        # Sobel 필터로 엣지 검출 (브러시 스트로크 방향)
+        edges = filters.sobel(np.mean(img_float, axis=2))
+        
+        # 브러시 스트로크 방향 기반 텍스처
+        stroke_texture = np.zeros_like(img_float)
+        for i in range(3):
+            stroke_texture[:, :, i] = img_float[:, :, i] + edges * 0.1
+        
+        # 유화 스타일 색상 혼합
+        stroke_texture = np.clip(stroke_texture, 0, 1)
+        img_array = img_as_ubyte(stroke_texture)
+        
+        print("Neural Style Transfer 스타일 텍스처 적용 완료")
+    except ImportError:
+        print("scikit-image 없음, 기본 노이즈 효과 사용")
+        # 기본 노이즈 효과 (폴백)
+        noise_pattern = np.random.normal(0, 0.6, img_array.shape[:2])
+        noise_pattern = np.clip(noise_pattern, -1.5, 1.5)
+        
+        # RGB 채널별로 노이즈 적용
+        for i in range(3):
+            img_array[:, :, i] = np.clip(img_array[:, :, i] + noise_pattern, 0, 255)
     
     # 8. 피부톤 강화 색상 조정 (자연스러운 피부톤)
     img_array = img_array.astype(np.float32)

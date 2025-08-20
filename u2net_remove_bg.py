@@ -147,9 +147,26 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
             # 더욱 높은 임계값으로 의복 보존
             _, mask = cv2.threshold(gray, 140, 1, cv2.THRESH_BINARY)
         
-        # 전경 마스크 생성 (매우 보수적 - 의복 완전 보존)
-        # GrabCut 결과에서 확실한 전경(1)과 가능한 전경(3)을 모두 포함
+        # 전경 마스크 생성 (극도로 보수적 - 의복 완전 보존)
+        # GrabCut 결과: 0=확실한 배경, 1=확실한 전경, 2=가능한 배경, 3=가능한 전경
+        # 의복 보존을 위해 가능한 배경(2)도 일부 포함
         mask2 = np.where((mask == 1) | (mask == 3), 1, 0).astype('uint8')
+        
+        # 추가 보호: 중앙 영역의 가능한 배경도 전경으로 처리 (의복 보호)
+        center_protection = np.zeros_like(mask2)
+        center_y, center_x = h // 2, w // 2
+        protect_h, protect_w = h // 2, w // 2
+        y1 = max(0, center_y - protect_h // 2)
+        y2 = min(h, center_y + protect_h // 2)
+        x1 = max(0, center_x - protect_w // 2)
+        x2 = min(w, center_x + protect_w // 2)
+        
+        # 중앙 영역의 가능한 배경(2)을 전경으로 변경
+        center_region = mask[y1:y2, x1:x2]
+        center_protection[y1:y2, x1:x2] = np.where(center_region == 2, 1, 0)
+        
+        # 원본 마스크와 중앙 보호 마스크 결합
+        mask2 = np.maximum(mask2, center_protection)
         
         # 의복 완전 보존을 위한 매우 부드러운 처리
         kernel_size = max(1, erode_size)  # 원래 크기 유지

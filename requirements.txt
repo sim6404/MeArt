@@ -3,3 +3,5 @@ Pillow==10.4.0
 numpy>=1.21.6,<2.0.0
 requests==2.32.4
 psutil==5.9.8
+scikit-image==0.21.0
+onnxruntime==1.16.3
