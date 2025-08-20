@@ -3,3 +3,5 @@ Pillow==10.4.0
 numpy>=1.21.6,<2.0.0
 requests==2.32.4
 psutil==5.9.8
+tensorflow-cpu==2.13.1
+tensorflow-hub==0.14.0

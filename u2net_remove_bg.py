@@ -126,29 +126,35 @@ def process_image(input_path, output_path, alpha_matting=True, fg_threshold=180,
         img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
         h, w, _ = img.shape
         
-        # 화면 경계에서 약간 안쪽으로 직사각형 초기화 (피사체를 포함하도록 여유)
-        rect_margin_w = max(10, w // 20)
-        rect_margin_h = max(10, h // 20)
+        # 더 보수적인 직사각형 설정 (셔츠/의복 보존을 위해)
+        rect_margin_w = max(20, w // 8)  # 더 넉넉한 여백
+        rect_margin_h = max(20, h // 6)  # 상의 보존을 위해 위쪽 여백 증가
         rect = (rect_margin_w, rect_margin_h, w - 2 * rect_margin_w, h - 2 * rect_margin_h)
         mask = np.zeros((h, w), np.uint8)
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
         
         try:
-            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
-            print("GrabCut 알고리즘 적용 성공")
+            # 더 많은 반복으로 정밀도 향상 (의복 보존)
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 8, cv2.GC_INIT_WITH_RECT)
+            print("GrabCut 알고리즘 적용 성공 (8회 반복)")
         except Exception as ex:
-            print(f"GrabCut 실패, 단순 임계값 대체로 전환: {ex}")
+            print(f"GrabCut 실패, 보수적 임계값 대체로 전환: {ex}")
+            # 더 보수적인 임계값 처리 (의복 보존)
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            _, mask = cv2.threshold(gray, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # Otsu 대신 더 보수적인 임계값 사용
+            _, mask = cv2.threshold(gray, 120, 1, cv2.THRESH_BINARY)
         
-        # 전경 마스크 생성
+        # 전경 마스크 생성 (더 보수적 - 의복 보존)
         mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
         
-        # 모폴로지로 가장자리 부드럽게
-        kernel = np.ones((erode_size, erode_size), np.uint8)
-        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
-        mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=1.5, sigmaY=1.5)
+        # 의복 보존을 위한 보다 부드러운 모폴로지 처리
+        kernel_size = max(1, erode_size // 2)  # 더 작은 커널
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        # 침식 대신 닫힘 연산으로 의복 내부 구멍 채우기
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=2)
+        # 더 부드러운 가우시안 블러
+        mask2 = cv2.GaussianBlur(mask2.astype('float32'), (0, 0), sigmaX=2.0, sigmaY=2.0)
         
         # 알파 채널 생성
         alpha = (mask2 * 255).astype('uint8')
