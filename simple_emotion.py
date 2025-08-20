@@ -37,32 +37,72 @@ def analyze_image_emotion(image_path):
         saturation = np.std(img_array)
         print(f"🎨 채도: {saturation:.1f}")
         
-        # 5. 감정 추정 로직
+        # 5. 정밀한 감정 추정 로직 (웃는 얼굴 정확 인식)
         emotions_pool = []
         
-        # 밝기 기반 감정
-        if brightness > 140:
-            emotions_pool.extend(['happiness', 'happiness', 'surprise'])  # 밝은 이미지
-        elif brightness < 100:
-            emotions_pool.extend(['sadness', 'contempt'])  # 어두운 이미지
+        # 얼굴 영역 검출 및 분석
+        try:
+            import cv2
+            img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+            gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+            
+            # 얼굴 검출
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            
+            # 웃음 검출 (Haar Cascade)
+            smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
+            
+            has_face = len(faces) > 0
+            has_smile = False
+            
+            if has_face:
+                for (x, y, w, h) in faces:
+                    face_roi = gray[y:y+h, x:x+w]
+                    smiles = smile_cascade.detectMultiScale(face_roi, scaleFactor=1.8, minNeighbors=20)
+                    if len(smiles) > 0:
+                        has_smile = True
+                        print("😊 웃음 검출됨!")
+                        break
+            
+            print(f"👤 얼굴: {has_face}, 😊 웃음: {has_smile}")
+            
+        except Exception as e:
+            print(f"얼굴/웃음 검출 실패: {e}")
+            has_face = False
+            has_smile = False
+        
+        # 웃음 검출 기반 감정 분류
+        if has_smile:
+            emotions_pool.extend(['happiness'] * 8)  # 웃음 검출 시 happiness 강화
+            emotions_pool.extend(['surprise'] * 2)
+        elif has_face:
+            # 얼굴은 있지만 웃음 없음 - 밝기와 색상 기반 분석
+            if brightness > 130 and warmth > 5:
+                emotions_pool.extend(['happiness'] * 4)  # 밝고 따뜻하면 happiness
+                emotions_pool.extend(['surprise'] * 3)
+                emotions_pool.extend(['neutral'] * 2)
+            elif brightness > 120:
+                emotions_pool.extend(['neutral'] * 4)
+                emotions_pool.extend(['happiness'] * 3)
+                emotions_pool.extend(['surprise'] * 2)
+            elif brightness < 90:
+                emotions_pool.extend(['sadness'] * 4)
+                emotions_pool.extend(['neutral'] * 3)
+            else:
+                emotions_pool.extend(['neutral'] * 5)
+                emotions_pool.extend(['happiness'] * 2)
         else:
-            emotions_pool.extend(['neutral', 'surprise'])  # 중간 밝기
-        
-        # 색온도 기반 감정
-        if warmth > 10:
-            emotions_pool.extend(['happiness', 'surprise'])  # 따뜻한 색감
-        elif warmth < -10:
-            emotions_pool.extend(['sadness', 'fear'])  # 차가운 색감
-        
-        # 채도 기반 감정
-        if saturation > 50:
-            emotions_pool.extend(['happiness', 'surprise', 'anger'])  # 높은 채도
-        elif saturation < 30:
-            emotions_pool.extend(['sadness', 'neutral'])  # 낮은 채도
-        
-        # 랜덤 요소 추가 (다양성)
-        all_emotions = ['happiness', 'surprise', 'sadness', 'anger', 'disgust', 'fear', 'neutral']
-        emotions_pool.extend(random.choices(all_emotions, k=2))
+            # 얼굴 검출 실패 - 기본 분석
+            if brightness > 140:
+                emotions_pool.extend(['happiness'] * 3)
+                emotions_pool.extend(['surprise'] * 2)
+            elif brightness < 100:
+                emotions_pool.extend(['sadness'] * 3)
+                emotions_pool.extend(['neutral'] * 2)
+            else:
+                emotions_pool.extend(['neutral'] * 4)
+                emotions_pool.extend(['happiness'] * 1)
         
         # 최종 감정 선택
         final_emotion = random.choice(emotions_pool)

@@ -9,8 +9,72 @@ from PIL import Image, ImageFilter, ImageEnhance
 import numpy as np
 
 def apply_minimal_brush_effect(image):
-    """최소한의 브러시 효과 - 확실한 작동 보장"""
-    print("🎨 최소 브러시 효과 적용 중...")
+    """고급 브러시 효과 - Neural Style Transfer 시도 후 PIL 폴백"""
+    print("🎨 고급 브러시 효과 적용 중...")
+    
+    # TensorFlow Neural Style Transfer 시도
+    try:
+        import tensorflow as tf
+        import tensorflow_hub as hub
+        import numpy as np
+        
+        print("🧠 TensorFlow Neural Style Transfer 시도...")
+        
+        # 메모리 최적화 설정
+        tf.config.experimental.enable_memory_growth = True
+        
+        # 이미지를 RGB로 변환하여 처리
+        rgb_img = image.convert('RGB')
+        img_array = np.array(rgb_img).astype(np.float32) / 255.0
+        
+        # 크기 조정 (메모리 최적화)
+        h, w = img_array.shape[:2]
+        max_dim = 384
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            new_h, new_w = int(h * scale), int(w * scale)
+            rgb_img = rgb_img.resize((new_w, new_h), Image.LANCZOS)
+            img_array = np.array(rgb_img).astype(np.float32) / 255.0
+        
+        # TensorFlow 텐서로 변환
+        content_tensor = tf.convert_to_tensor(img_array[np.newaxis, ...])
+        
+        # 기본 유화 스타일 생성 (간단한 스타일)
+        style_array = np.copy(img_array)
+        
+        # 유화 스타일 특성 적용
+        style_array = apply_oil_painting_transform(style_array)
+        style_tensor = tf.convert_to_tensor(style_array[np.newaxis, ...])
+        
+        # TensorFlow Hub 모델 로드
+        model_url = 'https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2'
+        hub_model = hub.load(model_url)
+        
+        # 스타일 트랜스퍼 실행
+        stylized = hub_model(content_tensor, style_tensor)[0]
+        
+        # 결과 변환
+        result_array = (stylized.numpy() * 255).astype(np.uint8)
+        result_img = Image.fromarray(result_array)
+        
+        # 원본 크기로 복원
+        if result_img.size != image.size[:2]:
+            result_img = result_img.resize(image.size[:2], Image.LANCZOS)
+        
+        # 알파 채널 복원
+        if image.mode == 'RGBA':
+            result_img = result_img.convert('RGBA')
+            alpha_channel = image.split()[-1]
+            result_img.putalpha(alpha_channel)
+        
+        print("✅ TensorFlow Neural Style Transfer 성공!")
+        return result_img
+        
+    except Exception as e:
+        print(f"❌ TensorFlow Neural Style Transfer 실패: {e}")
+        print("🔄 PIL 기반 브러시 효과로 대체...")
+    
+    # PIL 기반 폴백 효과
     
     # 알파 채널 보존
     has_alpha = image.mode == 'RGBA'
@@ -36,8 +100,22 @@ def apply_minimal_brush_effect(image):
         final = final.convert('RGBA')
         final.putalpha(alpha_channel)
     
-    print("✅ 최소 브러시 효과 완료")
+    print("✅ PIL 브러시 효과 완료")
     return final
+
+def apply_oil_painting_transform(img_array):
+    """유화 스타일 변환 (PIL 기반)"""
+    # PIL을 사용한 유화 스타일 변환
+    h, w, c = img_array.shape
+    
+    # 색상 양자화 (유화 특성)
+    quantized = np.round(img_array * 6) / 6  # 6단계 색상 양자화
+    
+    # 약간의 노이즈 추가 (유화 텍스처)
+    noise = np.random.normal(0, 0.02, (h, w, c))
+    stylized = np.clip(quantized + noise, 0, 1)
+    
+    return stylized
 
 def main():
     if len(sys.argv) < 3:

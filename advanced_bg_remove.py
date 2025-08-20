@@ -46,9 +46,9 @@ def detect_person_region(img_bgr):
     face_center_x = face_x + face_w // 2
     face_center_y = face_y + face_h // 2
     
-    # 상반신 영역 계산 (얼굴 크기 기준)
-    body_width = int(face_w * 3.5)    # 얼굴의 3.5배 너비
-    body_height = int(face_h * 4.0)   # 얼굴의 4배 높이 (상반신)
+    # 상반신 영역 계산 (더 넓은 배경 제거를 위해 조정)
+    body_width = int(face_w * 2.8)    # 얼굴의 2.8배 너비 (더 좁게)
+    body_height = int(face_h * 3.5)   # 얼굴의 3.5배 높이 (더 짧게)
     
     # 상반신 영역 좌표
     body_left = max(0, face_center_x - body_width // 2)
@@ -99,12 +99,23 @@ def create_precise_mask(img_bgr, person_region):
         # 확실한 전경 영역 (얼굴)
         grabcut_mask[face_top:face_bottom, face_left:face_right] = cv2.GC_FGD
         
-        # 확실한 배경 영역 (가장자리)
-        border = 20
+        # 확실한 배경 영역 (더 넓은 가장자리)
+        border = 30
         grabcut_mask[:border, :] = cv2.GC_BGD
         grabcut_mask[-border:, :] = cv2.GC_BGD
         grabcut_mask[:, :border] = cv2.GC_BGD
         grabcut_mask[:, -border:] = cv2.GC_BGD
+        
+        # 인물 영역 밖의 중간 영역도 배경으로 설정
+        body_left, body_top, body_w, body_h = person_region['body']
+        body_right = body_left + body_w
+        body_bottom = body_top + body_h
+        
+        # 인물 영역 밖 상단/하단 영역을 배경으로 설정
+        if body_top > border:
+            grabcut_mask[border:body_top, :] = cv2.GC_BGD
+        if body_bottom < h - border:
+            grabcut_mask[body_bottom:h-border, :] = cv2.GC_BGD
         
         # GrabCut 실행
         bgdModel = np.zeros((1, 65), np.float64)
