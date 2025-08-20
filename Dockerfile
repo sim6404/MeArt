@@ -37,7 +37,9 @@ RUN echo "=== BG_image 디렉토리 확인 ===" && \
     ls -la BG_image/ && \
     echo "BG_image 파일 수: $(find BG_image/ -name '*.jpg' | wc -l)" && \
     mkdir -p uploads && chmod 755 uploads && \
-    chmod -R 755 BG_image/
+    chmod -R 755 BG_image/ && \
+    mkdir -p models && chmod 755 models && \
+    echo "models 디렉토리 생성 완료"
 
 # 포트 노출 (Render 동적 포트 지원)
 EXPOSE 10000
